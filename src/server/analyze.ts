@@ -1,20 +1,32 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-const FMP = "https://financialmodelingprep.com/api/v3";
-const STABLE = "https://financialmodelingprep.com/stable";
+const FI_BASE = "https://api.finimpulse.com/v1";
 
 function key() {
-  const k = process.env.FMP_API_KEY;
-  if (!k) throw new Error("FMP_API_KEY not configured");
+  const k = process.env.FINIMPULSE_API_KEY;
+  if (!k) throw new Error("FINIMPULSE_API_KEY not configured");
   return k;
 }
 
-async function fmp<T = any>(url: string): Promise<T | null> {
-  const sep = url.includes("?") ? "&" : "?";
-  const res = await fetch(`${url}${sep}apikey=${key()}`);
-  if (!res.ok) return null;
-  try { return (await res.json()) as T; } catch { return null; }
+async function fi<T = any>(path: string, body: Record<string, unknown>): Promise<T | null> {
+  try {
+    const res = await fetch(`${FI_BASE}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key()}`,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as any;
+    // FinImpulse wraps payload in `result` (and uses status_code 20000 for success)
+    if (json && typeof json === "object" && "result" in json) return json.result as T;
+    return json as T;
+  } catch {
+    return null;
+  }
 }
 
 // ---------- indicators ----------
@@ -100,41 +112,75 @@ function passesValue(m: StockMetrics): boolean {
   return true;
 }
 
+function isoDateBack(daysBack: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - daysBack);
+  return d.toISOString().slice(0, 10);
+}
+
+async function fetchHistoryCloses(symbol: string): Promise<number[]> {
+  // pull ~400 calendar days to reliably get 200+ trading days
+  const result = await fi<any>("/histories", {
+    symbol,
+    types: ["historical_price"],
+    interval: "1d",
+    start_date: isoDateBack(400),
+    end_date: isoDateBack(0),
+    sort_by: [{ selector: "date", desc: false }],
+  });
+  const items: any[] = result?.items ?? [];
+  // Filter to historical_price rows; some feeds embed type per-row
+  const prices = items.filter((r) => !r.type || r.type === "historical_price");
+  // Ensure chronological ascending
+  prices.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  return prices.map((r) => r.adj_close ?? r.close).filter((n) => typeof n === "number");
+}
+
+async function fetchSummary(symbol: string): Promise<any | null> {
+  return fi<any>("/summary", { symbol });
+}
+
 async function fetchMetrics(symbol: string): Promise<StockMetrics | null> {
   const sym = symbol.toUpperCase();
-  const [profileArr, quoteArr, historyResp] = await Promise.all([
-    fmp<any[]>(`${FMP}/profile/${sym}`),
-    fmp<any[]>(`${FMP}/quote/${sym}`),
-    fmp<any>(`${FMP}/historical-price-full/${sym}?serietype=line&timeseries=260`),
+  const [summary, closes] = await Promise.all([
+    fetchSummary(sym),
+    fetchHistoryCloses(sym).catch(() => [] as number[]),
   ]);
-  const profile = profileArr?.[0];
-  const quote = quoteArr?.[0];
-  if (!profile && !quote) return null;
+  if (!summary && !closes.length) return null;
 
-  const histRaw: { date: string; close: number }[] = historyResp?.historical ?? [];
-  // FMP returns newest first → reverse to chronological
-  const hist = [...histRaw].reverse();
-  const closes = hist.map(h => h.close).filter(n => typeof n === "number");
-
-  const price = quote?.price ?? profile?.price ?? null;
-  const high52 = quote?.yearHigh ?? null;
-  const low52 = quote?.yearLow ?? null;
+  const price =
+    summary?.current_price ??
+    summary?.regular_market_price ??
+    (closes.length ? closes[closes.length - 1] : null);
+  const high52 = summary?.fifty_two_week_high ?? null;
+  const low52 = summary?.fifty_two_week_low ?? null;
   const pctFromLow = price && low52 ? ((price - low52) / low52) * 100 : null;
+
+  const ma50 = summary?.fifty_day_average ?? sma(closes, 50);
+  const ma200 = summary?.two_hundred_day_average ?? sma(closes, 200);
+  const ma20 = sma(closes, 20);
 
   const missing: string[] = [];
   if (!closes.length) missing.push("price history");
   if (price == null) missing.push("price");
-  if (quote?.pe == null) missing.push("P/E");
+  if (summary?.trailing_pe == null) missing.push("P/E");
+
+  const longName: string | undefined =
+    summary?.long_name ?? summary?.short_name ?? summary?.display_name;
 
   return {
     symbol: sym,
-    companyName: profile?.companyName ?? quote?.name ?? sym,
-    sector: profile?.sector ?? null,
-    industry: profile?.industry ?? null,
+    companyName: longName ?? sym,
+    sector: summary?.sector ?? null,
+    industry: summary?.industry ?? null,
     price,
-    marketCap: quote?.marketCap ?? profile?.mktCap ?? null,
-    avgVolume: quote?.avgVolume ?? profile?.volAvg ?? null,
-    pe: quote?.pe ?? null,
+    marketCap: summary?.market_cap ?? null,
+    avgVolume:
+      summary?.average_volume ??
+      summary?.average_volume_10days ??
+      summary?.average_daily_volume_10_day ??
+      null,
+    pe: summary?.trailing_pe ?? null,
     high52,
     low52,
     pctFromLow,
@@ -142,46 +188,38 @@ async function fetchMetrics(symbol: string): Promise<StockMetrics | null> {
     rsi14: rsi(closes, 14),
     roc14: roc(closes, 14),
     roc21: roc(closes, 21),
-    ma20: sma(closes, 20),
-    ma50: sma(closes, 50),
-    ma200: sma(closes, 200),
-    earningsDate: quote?.earningsAnnouncement ?? null,
+    ma20,
+    ma50,
+    ma200,
+    earningsDate: summary?.earnings_date ?? null,
     dataMissing: missing,
   };
 }
 
-// ---------- peers ----------
-async function fetchPeers(symbol: string): Promise<string[]> {
-  // try v4 stock_peers
-  const res = await fetch(`https://financialmodelingprep.com/api/v4/stock_peers?symbol=${symbol}&apikey=${key()}`);
-  if (res.ok) {
-    try {
-      const data = await res.json();
-      const arr = data?.[0]?.peersList;
-      if (Array.isArray(arr) && arr.length) return arr.slice(0, 25);
-    } catch {}
-  }
-  return [];
-}
-
-async function fetchSectorPeers(sector: string | null, industry: string | null, exclude: string): Promise<string[]> {
+// ---------- peers (via Search endpoint, filtered by industry/sector) ----------
+async function fetchSectorPeers(
+  sector: string | null,
+  industry: string | null,
+  exclude: string,
+): Promise<string[]> {
   if (!industry && !sector) return [];
-  // use stock-screener
-  const params = new URLSearchParams({
-    marketCapMoreThan: String(GLOBAL.minMcap),
-    volumeMoreThan: String(GLOBAL.minVolume),
-    priceMoreThan: String(GLOBAL.minPrice),
-    isEtf: "false",
-    isFund: "false",
-    isActivelyTrading: "true",
-    country: "US",
-    limit: "40",
+  const filters: any[] = ["quote_type", "eq", "stock"];
+  // FinImpulse search supports filter expressions: [field, op, value] combined with and/or
+  const targetField = industry ? "industry" : "sector";
+  const targetVal = industry ?? sector;
+  const combined = ["and", filters, [targetField, "eq", targetVal]];
+
+  const result = await fi<any>("/search", {
+    quote_types: ["stock"],
+    filters: combined,
+    sort_by: [{ selector: "amount_usd", desc: true }],
+    limit: 40,
   });
-  if (industry) params.set("industry", industry);
-  else if (sector) params.set("sector", sector);
-  const data = await fmp<any[]>(`${FMP}/stock-screener?${params.toString()}`);
-  if (!Array.isArray(data)) return [];
-  return data.map(d => d.symbol).filter(s => s && s !== exclude).slice(0, 25);
+  const items: any[] = result?.items ?? [];
+  return items
+    .map((d) => d.symbol)
+    .filter((s: string) => s && s !== exclude)
+    .slice(0, 25);
 }
 
 // ---------- scoring ----------
@@ -198,7 +236,6 @@ function classifyMomentum(m: StockMetrics): { signal: string; outlook: string; c
   if (perfp && roc14p && roc21p && r < 70 && above20 && above50) signal = "Momentum continuation";
   else if (perfp && (r > 70 || (m.roc14 ?? 0) < (m.roc21 ?? 0))) signal = "Potential reversal";
 
-  // outlook
   let bullScore = 0;
   if (perfp) bullScore++;
   if (roc14p) bullScore++;
@@ -278,36 +315,27 @@ export const analyzeTicker = createServerFn({ method: "POST" })
       return { error: "Ticker not found or no data available. Please verify it's a valid US-listed symbol." } as const;
     }
 
-    // peers
-    let peerSymbols = await fetchPeers(symbol);
-    if (peerSymbols.length < 5) {
-      const extra = await fetchSectorPeers(target.sector, target.industry, symbol);
-      peerSymbols = Array.from(new Set([...peerSymbols, ...extra])).slice(0, 25);
-    }
-    peerSymbols = peerSymbols.filter(s => s !== symbol);
+    const peerSymbols = (await fetchSectorPeers(target.sector, target.industry, symbol))
+      .filter((s) => s !== symbol);
 
-    const peerResults = await Promise.all(peerSymbols.map(s => fetchMetrics(s).catch(() => null)));
+    const peerResults = await Promise.all(peerSymbols.map((s) => fetchMetrics(s).catch(() => null)));
     const peers = peerResults.filter((x): x is StockMetrics => x !== null);
 
-    // value screen (peers + target check)
     const valueQualifiers = peers.filter(passesValue);
     const targetPassesValue = passesValue(target);
 
-    // momentum: rank by 5d perf among peers passing global filter
-    const momentumPool = peers.filter(passesGlobal).filter(p => p.perf5d != null);
+    const momentumPool = peers.filter(passesGlobal).filter((p) => p.perf5d != null);
     momentumPool.sort((a, b) => (b.perf5d ?? 0) - (a.perf5d ?? 0));
-    const momentumTop = momentumPool.slice(0, 10).map(m => ({
+    const momentumTop = momentumPool.slice(0, 10).map((m) => ({
       ...m,
       ...classifyMomentum(m),
       rsiLabel: rsiLabel(m.rsi14),
     }));
 
-    // overlap
-    const valueSet = new Set(valueQualifiers.map(v => v.symbol));
-    const momSet = new Set(momentumTop.map(v => v.symbol));
-    const overlap = [...valueSet].filter(s => momSet.has(s));
+    const valueSet = new Set(valueQualifiers.map((v) => v.symbol));
+    const momSet = new Set(momentumTop.map((v) => v.symbol));
+    const overlap = [...valueSet].filter((s) => momSet.has(s));
 
-    // target classification + recommendation
     const targetMomentum = classifyMomentum(target);
     const targetRec = buildRecommendation(target);
 
