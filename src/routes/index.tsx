@@ -73,7 +73,7 @@ function Header({ ticker, setTicker, onSubmit, loading }: { ticker: string; setT
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-primary rounded-sm" />
           <h1 className="font-mono text-sm tracking-widest text-primary">EQUITY&nbsp;TERMINAL</h1>
-          <span className="text-xs text-muted-foreground hidden sm:inline">v1.0 · FMP</span>
+          <span className="text-xs text-muted-foreground hidden sm:inline">v1.0 · FinImpulse</span>
         </div>
         <form onSubmit={onSubmit} className="flex items-center gap-2 flex-1 min-w-[280px] max-w-xl ml-auto">
           <div className="flex items-center gap-2 flex-1 bg-input border border-border rounded px-3 py-1.5 focus-within:border-primary">
@@ -519,7 +519,7 @@ function Thesis({ title, cls, children }: { title: string; cls: string; children
 function Disclaimer() {
   return (
     <p className="mt-8 text-[11px] text-muted-foreground border-t border-border pt-4 max-w-3xl mx-auto text-center leading-relaxed">
-      This analysis is for informational purposes only and is not financial advice. Investors should conduct their own research or consult a qualified financial advisor before making investment decisions. Data provided by Financial Modeling Prep.
+      This analysis is for informational purposes only and is not financial advice. Investors should conduct their own research or consult a qualified financial advisor before making investment decisions. Data provided by FinImpulse.
     </p>
   );
 }
