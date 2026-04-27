@@ -53,8 +53,8 @@ function TerminalPage() {
       <main className="max-w-[1400px] mx-auto px-4 py-6">
         {!search.data && !analyze.data && !search.isPending && !analyze.isPending && <EmptyState />}
         {(search.isPending || analyze.isPending) && <LoadingState label={analyze.isPending ? "Analyzing" : "Searching"} value={query} />}
-        {search.isError && <ErrorPanel message={(search.error as Error)?.message ?? "Search failed"} />}
-        {analyze.isError && <ErrorPanel message={(analyze.error as Error)?.message ?? "Analysis failed"} />}
+        {search.isError && <ErrorPanel message="Search failed. Please try again." />}
+        {analyze.isError && <ErrorPanel message="Analysis failed. Please try again." />}
         {isError && <ErrorPanel message={(data as any).error} />}
 
         {showPicker && (
