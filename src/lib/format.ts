@@ -9,12 +9,36 @@ export function fmtPct(n: number | null | undefined, digits = 2): string {
   return `${n > 0 ? "+" : ""}${s}%`;
 }
 
-export function fmtMcap(n: number | null | undefined): string {
+const CCY_SYMBOL: Record<string, string> = {
+  USD: "$", EUR: "€", GBP: "£", JPY: "¥", CNY: "¥", HKD: "HK$",
+  INR: "₹", KRW: "₩", TWD: "NT$", AUD: "A$", SGD: "S$", CHF: "CHF ",
+  SEK: "kr ", NOK: "kr ", DKK: "kr ",
+};
+
+export function ccySym(c?: string | null): string {
+  if (!c) return "$";
+  return CCY_SYMBOL[c.toUpperCase()] ?? `${c} `;
+}
+
+export function fmtPrice(n: number | null | undefined, currency?: string | null, digits = 2): string {
+  if (n == null || !isFinite(n)) return "—";
+  // JPY/KRW typically have no fractional digits
+  const c = (currency ?? "").toUpperCase();
+  const d = c === "JPY" || c === "KRW" ? 0 : digits;
+  return `${ccySym(currency)}${n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d })}`;
+}
+
+export function fmtMcap(n: number | null | undefined, currency?: string | null): string {
   if (n == null) return "—";
-  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
-  if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-  if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
-  return `$${n.toLocaleString()}`;
+  const sym = ccySym(currency);
+  if (n >= 1e12) return `${sym}${(n / 1e12).toFixed(2)}T`;
+  if (n >= 1e9) return `${sym}${(n / 1e9).toFixed(2)}B`;
+  if (n >= 1e6) return `${sym}${(n / 1e6).toFixed(2)}M`;
+  return `${sym}${n.toLocaleString()}`;
+}
+
+export function fmtMcapUsd(n: number | null | undefined): string {
+  return fmtMcap(n, "USD");
 }
 
 export function fmtVol(n: number | null | undefined): string {
