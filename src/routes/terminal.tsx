@@ -4,7 +4,7 @@ import { useState } from "react";
 import { analyzeTicker, searchTickers } from "@/server/analyze";
 import { fmtNum, fmtPct, fmtMcap, fmtMcapUsd, fmtVol, fmtPrice, colorFor, trendArrow, vsMA } from "@/lib/format";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/terminal")({
   head: () => ({
     meta: [
       { title: "Global Equity Terminal — Stock Analysis" },
