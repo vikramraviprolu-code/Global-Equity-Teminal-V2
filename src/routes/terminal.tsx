@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { z } from "zod";
 import { analyzeTicker, searchTickers } from "@/server/analyze";
 import { fmtNum, fmtPct, fmtMcap, fmtMcapUsd, fmtVol, fmtPrice, colorFor, trendArrow, vsMA } from "@/lib/format";
 
 export const Route = createFileRoute("/terminal")({
+  validateSearch: (s: Record<string, unknown>) => z.object({ t: z.string().optional() }).parse(s),
   head: () => ({
     meta: [
       { title: "Global Equity Terminal — Stock Analysis" },
@@ -20,11 +22,20 @@ type SearchResult = Awaited<ReturnType<typeof searchTickers>>;
 type Match = SearchResult["matches"][number];
 
 function TerminalPage() {
-  const [query, setQuery] = useState("");
+  const { t: initialTicker } = Route.useSearch();
+  const [query, setQuery] = useState(initialTicker ?? "");
   const [tab, setTab] = useState<"overview" | "value" | "momentum" | "cross" | "final">("overview");
 
   const search = useMutation({ mutationFn: (q: string) => searchTickers({ data: { q } }) });
   const analyze = useMutation({ mutationFn: (t: string) => analyzeTicker({ data: { ticker: t } }) });
+
+  const autoRan = useRef(false);
+  useEffect(() => {
+    if (initialTicker && !autoRan.current) {
+      autoRan.current = true;
+      analyze.mutate(initialTicker);
+    }
+  }, [initialTicker, analyze]);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
