@@ -92,6 +92,18 @@ export function LandingHero({
               Browse Screener →
             </a>
             <button
+              type="button"
+              onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
+              className="px-5 py-2.5 border border-primary/40 bg-primary/10 text-primary font-mono text-xs uppercase tracking-widest rounded-sm hover:bg-primary/20 transition-colors flex items-center gap-2"
+              title="Open the AI co-pilot"
+            >
+              <span>Ask AI</span>
+              <span className="flex gap-1">
+                <kbd className="inline-flex items-center justify-center min-w-[1.25rem] px-1 py-0 rounded border border-primary/40 bg-background/40 font-mono text-[10px] text-primary">⌘</kbd>
+                <kbd className="inline-flex items-center justify-center min-w-[1.25rem] px-1 py-0 rounded border border-primary/40 bg-background/40 font-mono text-[10px] text-primary">K</kbd>
+              </span>
+            </button>
+            <button
               onClick={() => onPickPreset("quality")}
               className="px-5 py-2.5 border border-border bg-card/40 text-foreground font-mono text-xs uppercase tracking-widest rounded-sm hover:border-primary/40 hover:text-primary transition-colors"
             >
@@ -104,6 +116,9 @@ export function LandingHero({
               Data Sources →
             </Link>
           </div>
+          <p className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground mt-4">
+            Try: <span className="text-foreground/80">"cheap Indian banks with yield &gt; 4%"</span>
+          </p>
         </div>
 
         {/* Live stats panel */}
@@ -173,6 +188,43 @@ export function LandingHero({
         </div>
       )}
 
+      {/* Capabilities — new AI + visual layer */}
+      <div className="max-w-[1400px] mx-auto px-4 pb-2">
+        <div className="flex items-baseline justify-between mb-4">
+          <div>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-[color:var(--cyan)]">// New</span>
+            <h2 className="text-xl font-medium tracking-tight mt-1">Intelligence layer</h2>
+          </div>
+          <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Powered by Lovable AI</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-border border border-border mb-10">
+          <Capability
+            num="A1"
+            tag="CO-PILOT"
+            title="Ask in plain English"
+            desc="Press ⌘K and describe what you want. The AI translates natural-language queries into screener filters and navigation."
+          />
+          <Capability
+            num="A2"
+            tag="NARRATIVE"
+            title="AI analyst thesis"
+            desc="Every ticker gets a 3-paragraph thesis grounded in its specific fundamentals, momentum and risk metrics."
+          />
+          <Capability
+            num="A3"
+            tag="TREND"
+            title="Inline sparklines"
+            desc="Screener and watchlist rows now render compact 5-day price sparklines so trend reads at a glance."
+          />
+          <Capability
+            num="A4"
+            tag="DIFF"
+            title="Compare diff mode"
+            desc="On the Compare page, hide identical rows and highlight metric divergence to surface what actually differs."
+          />
+        </div>
+      </div>
+
       {/* Featured presets */}
       <div className="max-w-[1400px] mx-auto px-4 pb-10">
         <div className="flex items-baseline justify-between mb-4">
@@ -200,6 +252,19 @@ export function LandingHero({
         </div>
       </div>
     </section>
+  );
+}
+
+function Capability({ num, tag, title, desc }: { num: string; tag: string; title: string; desc: string }) {
+  return (
+    <div className="bg-card p-5">
+      <div className="flex items-start justify-between mb-10">
+        <span className="font-mono text-[10px] text-[color:var(--cyan)] tracking-widest">{num} // {tag}</span>
+        <span className="size-1.5 rounded-full bg-[color:var(--cyan)]" />
+      </div>
+      <h3 className="text-base font-medium mb-1.5">{title}</h3>
+      <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+    </div>
   );
 }
 
