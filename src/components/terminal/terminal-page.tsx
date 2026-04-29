@@ -2,7 +2,8 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getRouteApi } from "@tanstack/react-router";
 import { analyzeTicker, searchTickers } from "@/server/analyze";
-import { fmtNum, fmtPct, fmtMcap, fmtMcapUsd, fmtVol, fmtPrice, colorFor, trendArrow, vsMA } from "@/lib/format";
+import { fmtNum, fmtPct, fmtMcap, fmtMcapUsd, fmtVol, fmtPrice, fmtPriceDisplay, fmtMcapDisplay, colorFor, trendArrow, vsMA } from "@/lib/format";
+import { useDisplayCurrency } from "@/hooks/use-display-currency";
 import { SiteNav, Disclaimer as SharedDisclaimer } from "@/components/site-nav";
 import { PriceChart } from "@/components/price-chart";
 import { useWatchlist } from "@/hooks/use-watchlist";
@@ -10,6 +11,8 @@ import { scoreRow } from "@/lib/scores";
 import { backtestMaCross, computeHistoricalReturns } from "@/lib/backtest";
 import { SourcedCell } from "@/components/sourced-value";
 import { provenanceFor } from "@/lib/sourced";
+import { downloadTerminalPdf } from "@/lib/pdf-report";
+import { onAction } from "@/lib/action-bus";
 
 const routeApi = getRouteApi("/terminal");
 
@@ -59,6 +62,12 @@ export function TerminalPage({ initialTicker: initialTickerProp }: { initialTick
   const data = analyze.data;
   const isError = data && "error" in data;
   const result = data && !("error" in data) ? data : null;
+
+  // Press "e" to download the PDF report when a result is loaded
+  useEffect(() => {
+    if (!result) return;
+    return onAction("export", () => downloadTerminalPdf(result));
+  }, [result]);
 
   return (
     <div className="min-h-screen">
@@ -251,14 +260,16 @@ function SnapshotBar({ r }: { r: Success }) {
             >
               {inList ? "★ In Watchlist" : "☆ Add to Watchlist"}
             </button>
+            <button
+              onClick={() => downloadTerminalPdf(r)}
+              title="Download PDF report (press E)"
+              className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              ⬇ Download Report
+            </button>
           </div>
         </div>
-        <div className="ml-auto flex items-baseline gap-6 font-mono">
-          <Stat label="PRICE" value={fmtPrice(t.price, t.currency)} />
-          <Stat label="5D" value={fmtPct(t.perf5d)} cls={colorFor(t.perf5d)} />
-          <Stat label="RSI" value={fmtNum(t.rsi14, 1)} cls={t.rsi14 == null ? "" : t.rsi14 > 70 ? "text-[color:var(--bear)]" : t.rsi14 < 30 ? "text-[color:var(--bull)]" : ""} />
-          <Stat label="MCAP" value={fmtMcap(t.marketCap, t.currency)} sub={t.marketCapUsd ? fmtMcapUsd(t.marketCapUsd) : undefined} />
-        </div>
+        <SnapshotStats t={t} />
       </div>
       <div className="px-4 py-2 flex flex-wrap gap-3 text-xs font-mono">
         <Pill ok={t.passesGlobal} label={`Liquidity (${t.region}): ${t.passesGlobal ? "PASS" : "FAIL"}`} />
@@ -266,6 +277,26 @@ function SnapshotBar({ r }: { r: Success }) {
         <Pill ok={t.recommendation.rec === "Buy"} warn={t.recommendation.rec === "Watch"} label={`Rec: ${t.recommendation.rec}`} />
         <span className="text-muted-foreground">Outlook: <span className="text-foreground">{t.outlook}</span> · Conf: {t.confidence}</span>
       </div>
+    </div>
+  );
+}
+
+function SnapshotStats({ t }: { t: any }) {
+  const [mode] = useDisplayCurrency();
+  return (
+    <div className="ml-auto flex items-baseline gap-6 font-mono">
+      <Stat
+        label="PRICE"
+        value={fmtPriceDisplay(t.price, t.currency, t.marketCap, t.marketCapUsd, mode)}
+        sub={mode === "USD" && (t.currency ?? "").toUpperCase() !== "USD" ? fmtPrice(t.price, t.currency) : undefined}
+      />
+      <Stat label="5D" value={fmtPct(t.perf5d)} cls={colorFor(t.perf5d)} />
+      <Stat label="RSI" value={fmtNum(t.rsi14, 1)} cls={t.rsi14 == null ? "" : t.rsi14 > 70 ? "text-[color:var(--bear)]" : t.rsi14 < 30 ? "text-[color:var(--bull)]" : ""} />
+      <Stat
+        label="MCAP"
+        value={fmtMcapDisplay(t.marketCap, t.marketCapUsd, t.currency, mode)}
+        sub={mode === "local" && t.marketCapUsd ? fmtMcapUsd(t.marketCapUsd) : undefined}
+      />
     </div>
   );
 }

@@ -41,6 +41,41 @@ export function fmtMcapUsd(n: number | null | undefined): string {
   return fmtMcap(n, "USD");
 }
 
+/**
+ * Currency-aware price formatter. When mode === "USD", converts the local price
+ * to USD using the row's implicit FX rate (marketCapUsd / marketCap).
+ * Falls back to local display when conversion data is missing.
+ */
+export function fmtPriceDisplay(
+  price: number | null | undefined,
+  currency: string | null | undefined,
+  marketCap: number | null | undefined,
+  marketCapUsd: number | null | undefined,
+  mode: "local" | "USD" = "local",
+  digits = 2,
+): string {
+  if (mode === "USD") {
+    const c = (currency ?? "").toUpperCase();
+    if (c === "USD") return fmtPrice(price, "USD", digits);
+    if (price != null && marketCap && marketCapUsd && marketCap > 0) {
+      const fx = marketCapUsd / marketCap;
+      return fmtPrice(price * fx, "USD", digits);
+    }
+  }
+  return fmtPrice(price, currency, digits);
+}
+
+/** Currency-aware market-cap formatter. */
+export function fmtMcapDisplay(
+  marketCap: number | null | undefined,
+  marketCapUsd: number | null | undefined,
+  currency: string | null | undefined,
+  mode: "local" | "USD" = "local",
+): string {
+  if (mode === "USD") return fmtMcapUsd(marketCapUsd ?? null);
+  return fmtMcap(marketCap, currency);
+}
+
 export function fmtVol(n: number | null | undefined): string {
   if (n == null) return "—";
   if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;

@@ -1,16 +1,18 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useState, useEffect } from "react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { fetchUniverse } from "@/server/screen.functions";
 import { scoreAll, scoreRow, type ScoredRow } from "@/lib/scores";
-import { fmtNum, fmtPct, fmtMcapUsd, fmtPrice, fmtVol, colorFor } from "@/lib/format";
+import { fmtNum, fmtPct, fmtMcapUsd, fmtPriceDisplay, fmtVol, colorFor } from "@/lib/format";
+import { useDisplayCurrency } from "@/hooks/use-display-currency";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { SiteNav } from "@/components/site-nav";
 import { SectorHeatmap } from "@/components/sector-heatmap";
 import { LandingHero } from "@/components/landing-hero";
 import { exportRowsCsv, exportNodeAsPng } from "@/lib/export";
+import { onAction } from "@/lib/action-bus";
 import { useRef } from "react";
 
 const SORTABLE_KEYS = ["symbol", "name", "sector", "price", "marketCapUsd", "pe", "pb", "dividendYield", "pctFromLow", "perf5d", "rsi14", "value", "momentum", "quality", "risk", "confidence"] as const;
@@ -184,7 +186,7 @@ function ScreenerPage() {
   const { items: watchlist, add: addWatch, remove: removeWatch } = useWatchlist();
 
   const setFilters = (next: Partial<Filters>) =>
-    navigate({ to: "/", search: (prev) => ({ ...prev, ...next, page: next.page ?? 1 }) });
+    navigate({ to: "/", search: (prev: Filters) => ({ ...prev, ...next, page: next.page ?? 1 }) });
   const replaceFilters = (next: Filters) =>
     navigate({ to: "/", search: { ...next, page: 1 } });
 
@@ -247,6 +249,14 @@ function ScreenerPage() {
   const onPickPreset = (p: PresetId) => replaceFilters(applyPreset(p));
 
   const sectors = useMemo(() => Array.from(new Set(scored.map((r) => r.sector))).sort(), [scored]);
+
+  // Press "e" to export current filtered results as CSV
+  useEffect(() => {
+    return onAction("export", () => {
+      if (sorted.length === 0) return;
+      exportRowsCsv(sorted, `screener-${filters.preset}-${new Date().toISOString().slice(0,10)}.csv`);
+    });
+  }, [sorted, filters.preset]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -576,6 +586,7 @@ function ResultsTable({ rows, columns, sortBy, sortDir, onSort, selected, toggle
   onOpen: (s: string) => void;
 }) {
   const has = (k: ColumnKey) => columns.has(k);
+  const [ccyMode] = useDisplayCurrency();
   const Th = ({ k, label, num, colKey }: { k: string; label: string; num?: boolean; colKey?: ColumnKey }) => {
     if (colKey && !has(colKey)) return null;
     return (
@@ -635,7 +646,7 @@ function ResultsTable({ rows, columns, sortBy, sortDir, onSort, selected, toggle
                   {has("name") && <td className="max-w-[160px] truncate" title={r.name}>{r.name}</td>}
                   {has("region") && <td className="text-muted-foreground">{r.region}</td>}
                   {has("sector") && <td className="text-muted-foreground max-w-[140px] truncate" title={r.sector}>{r.sector}</td>}
-                  {has("price") && <td className="num">{fmtPrice(r.price, r.currency)}</td>}
+                  {has("price") && <td className="num">{fmtPriceDisplay(r.price, r.currency, r.marketCap, r.marketCapUsd, ccyMode)}</td>}
                   {has("marketCapUsd") && <td className="num">{fmtMcapUsd(r.marketCapUsd)}</td>}
                   {has("pe") && <td className="num">{fmtNum(r.pe, 1)}</td>}
                   {has("pb") && <td className="num">{fmtNum(r.pb, 2)}</td>}
@@ -717,6 +728,7 @@ function ScoreCell({ n, invert }: { n: number; invert?: boolean }) {
 function ResultsCards({ rows, watchlist, onAddOne, onRemoveOne, onOpen }: {
   rows: ScoredRow[]; watchlist: string[]; onAddOne: (s: string) => void; onRemoveOne: (s: string) => void; onOpen: (s: string) => void;
 }) {
+  const [ccyMode] = useDisplayCurrency();
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
       {rows.map((r) => {
@@ -730,7 +742,7 @@ function ResultsCards({ rows, watchlist, onAddOne, onRemoveOne, onOpen }: {
                 <div className="text-xs text-muted-foreground truncate" title={r.name}>{r.name}</div>
               </div>
               <div className="text-right">
-                <div className="font-mono text-sm">{fmtPrice(r.price, r.currency)}</div>
+                <div className="font-mono text-sm">{fmtPriceDisplay(r.price, r.currency, r.marketCap, r.marketCapUsd, ccyMode)}</div>
                 <div className={`font-mono text-[10px] ${colorFor(r.perf5d)}`}>{fmtPct(r.perf5d)}</div>
               </div>
             </div>

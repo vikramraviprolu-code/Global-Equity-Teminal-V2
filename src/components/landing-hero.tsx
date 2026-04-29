@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import type { ScoredRow } from "@/lib/scores";
-import { fmtPrice, fmtPct, colorFor } from "@/lib/format";
+import { fmtPriceDisplay, fmtPct, colorFor } from "@/lib/format";
+import { useDisplayCurrency } from "@/hooks/use-display-currency";
 
 type Meta = { retrievedAt: string; total: number; mockCount: number; liveCount: number };
 
@@ -35,6 +36,7 @@ export function LandingHero({
   isLoading: boolean;
   onPickPreset: (id: "valueLow" | "momentum" | "quality" | "breakout") => void;
 }) {
+  const [ccyMode] = useDisplayCurrency();
   const byRegion = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of rows) m.set(r.region, (m.get(r.region) ?? 0) + 1);
@@ -162,7 +164,7 @@ export function LandingHero({
                 <span className="col-span-2 text-primary">{r.symbol}</span>
                 <span className="col-span-4 truncate text-foreground" title={r.name}>{r.name}</span>
                 <span className="col-span-2 text-muted-foreground hidden md:block">{r.region}</span>
-                <span className="col-span-2 text-right text-foreground tabular-nums">{fmtPrice(r.price, r.currency)}</span>
+                <span className="col-span-2 text-right text-foreground tabular-nums">{fmtPriceDisplay(r.price, r.currency, r.marketCap, r.marketCapUsd, ccyMode)}</span>
                 <span className={`col-span-1 text-right tabular-nums ${colorFor(r.perf5d)}`}>{fmtPct(r.perf5d)}</span>
                 <span className="col-span-1 text-right text-[10px] uppercase text-muted-foreground hover:text-primary">Open →</span>
               </Link>

@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { CurrencyToggle } from "@/components/currency-toggle";
 
 type NavItem = { to: string; label: string; exact?: boolean };
 const NAV: NavItem[] = [
@@ -33,7 +34,19 @@ export function SiteNav({ right }: { right?: React.ReactNode }) {
               {n.label}
             </Link>
           ))}
-          {right && <div className="ml-2">{right}</div>}
+          <div className="ml-2 flex items-center gap-2">
+            <CurrencyToggle />
+            <button
+              type="button"
+              title="Keyboard shortcuts (press ?)"
+              aria-label="Show keyboard shortcuts"
+              onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "?" }))}
+              className="hidden sm:inline-flex items-center justify-center w-6 h-6 rounded border border-border text-[11px] font-mono text-muted-foreground hover:text-foreground hover:bg-muted"
+            >
+              ?
+            </button>
+            {right}
+          </div>
         </nav>
       </div>
     </header>

@@ -1,7 +1,8 @@
 import { Outlet, Link, createRootRouteWithContext, HeadContent, Scripts } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import appCss from "../styles.css?url";
-import { SITE_URL, organizationJsonLd, websiteJsonLd } from "@/lib/seo";
+import { organizationJsonLd, websiteJsonLd } from "@/lib/seo";
+import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 
 function NotFoundComponent() {
   return (
@@ -69,6 +70,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
+      <KeyboardShortcuts />
     </QueryClientProvider>
   );
 }
