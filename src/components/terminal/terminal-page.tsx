@@ -8,6 +8,8 @@ import { PriceChart } from "@/components/price-chart";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { scoreRow } from "@/lib/scores";
 import { backtestMaCross, computeHistoricalReturns } from "@/lib/backtest";
+import { SourcedCell } from "@/components/sourced-value";
+import { provenanceFor } from "@/lib/sourced";
 
 const routeApi = getRouteApi("/terminal");
 
@@ -17,8 +19,13 @@ type Success = Extract<AnalysisResult, { target: any }>;
 type SearchResult = Awaited<ReturnType<typeof searchTickers>>;
 type Match = SearchResult["matches"][number];
 
-export function TerminalPage() {
-  const { t: initialTicker } = routeApi.useSearch();
+export function TerminalPage({ initialTicker: initialTickerProp }: { initialTicker?: string } = {}) {
+  // When mounted from /terminal/$symbol, the prop wins. When mounted from /terminal,
+  // fall back to the ?t= search param. Wrap useSearch in a try so the route api
+  // doesn't throw when this component is rendered outside the /terminal route.
+  let searchTicker: string | undefined;
+  try { searchTicker = (routeApi.useSearch() as { t?: string }).t; } catch { searchTicker = undefined; }
+  const initialTicker = initialTickerProp ?? searchTicker;
   const [query, setQuery] = useState(initialTicker ?? "");
   const [tab, setTab] = useState<"overview" | "chart" | "scores" | "value" | "momentum" | "peers" | "cross" | "scenario" | "final">("overview");
 
@@ -307,37 +314,50 @@ function Tabs({ tab, setTab }: { tab: string; setTab: (t: any) => void }) {
 function OverviewSection({ r }: { r: Success }) {
   const t = r.target;
   const f = t.filter;
+  // Treat analyze target as live data (analyze never returns mock).
+  const provRow = { isMock: false, source: "Finimpulse", retrievedAt: new Date().toISOString(), closes: t.closes };
+  const sv = (field: Parameters<typeof provenanceFor>[1], value: number | null) => provenanceFor(provRow, field, value);
+  type Row = { k: string; v: React.ReactNode };
+  const rows: Row[] = [
+    { k: "Company", v: t.companyName },
+    { k: "Exchange", v: `${t.fullExchange ?? t.exchange ?? "—"}` },
+    { k: "Country / Region", v: `${t.country ?? "—"} · ${t.region}` },
+    { k: "Currency", v: t.currency },
+    { k: "Sector", v: t.sector ?? "—" },
+    { k: "Industry", v: t.industry ?? "—" },
+    { k: "Price", v: <SourcedCell provenance={sv("price", t.price)}>{fmtPrice(t.price, t.currency)}</SourcedCell> },
+    { k: "Market Cap (Local)", v: <SourcedCell provenance={sv("marketCap", t.marketCap)}>{fmtMcap(t.marketCap, t.currency)}</SourcedCell> },
+    { k: "Market Cap (USD)", v: <SourcedCell provenance={sv("marketCapUsd", t.marketCapUsd)}>{fmtMcapUsd(t.marketCapUsd)}</SourcedCell> },
+    { k: "Avg Daily Volume", v: <SourcedCell provenance={sv("avgVolume", t.avgVolume)}>{fmtVol(t.avgVolume)}</SourcedCell> },
+    { k: "52W Low", v: <SourcedCell provenance={sv("low52", t.low52)}>{fmtPrice(t.low52, t.currency)}</SourcedCell> },
+    { k: "52W High", v: <SourcedCell provenance={sv("high52", t.high52)}>{fmtPrice(t.high52, t.currency)}</SourcedCell> },
+    { k: "% From 52W Low", v: <SourcedCell provenance={sv("pctFromLow", t.pctFromLow)}>{fmtPct(t.pctFromLow)}</SourcedCell> },
+    { k: "Trailing P/E", v: <SourcedCell provenance={sv("pe", t.pe)}>{fmtNum(t.pe)}</SourcedCell> },
+    { k: "5D Performance", v: <SourcedCell provenance={sv("perf5d", t.perf5d)}>{fmtPct(t.perf5d)}</SourcedCell> },
+    { k: "RSI 14D", v: <SourcedCell provenance={sv("rsi14", t.rsi14)}>{fmtNum(t.rsi14, 1)} ({t.rsiLabel})</SourcedCell> },
+    { k: "ROC 14D", v: <SourcedCell provenance={sv("roc14", t.roc14)}>{fmtPct(t.roc14)}</SourcedCell> },
+    { k: "ROC 21D", v: <SourcedCell provenance={sv("roc21", t.roc21)}>{fmtPct(t.roc21)}</SourcedCell> },
+    { k: "Price vs 20D MA", v: <SourcedCell provenance={sv("ma20", t.ma20)}>{vsMA(t.price, t.ma20).label} ({fmtPrice(t.ma20, t.currency)})</SourcedCell> },
+    { k: "Price vs 50D MA", v: <SourcedCell provenance={sv("ma50", t.ma50)}>{vsMA(t.price, t.ma50).label} ({fmtPrice(t.ma50, t.currency)})</SourcedCell> },
+    { k: "Price vs 200D MA", v: <SourcedCell provenance={sv("ma200", t.ma200)}>{vsMA(t.price, t.ma200).label} ({fmtPrice(t.ma200, t.currency)})</SourcedCell> },
+    { k: "Earnings Date", v: t.earningsDate ? new Date(t.earningsDate).toLocaleDateString() : "—" },
+  ];
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       <div className="panel lg:col-span-2">
-        <div className="panel-header">Snapshot · {t.symbol}</div>
+        <div className="panel-header flex items-center justify-between">
+          <span>Snapshot · {t.symbol}</span>
+          <span className="text-[10px] font-normal normal-case tracking-normal text-muted-foreground flex items-center gap-2">
+            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[color:var(--bull)]" />High</span>
+            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary" />Med</span>
+            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[color:var(--bear)]" />Low</span>
+            <span className="text-muted-foreground/60">· hover for source</span>
+          </span>
+        </div>
         <table className="term">
           <tbody>
-            {[
-              ["Company", t.companyName],
-              ["Exchange", `${t.fullExchange ?? t.exchange ?? "—"}`],
-              ["Country / Region", `${t.country ?? "—"} · ${t.region}`],
-              ["Currency", t.currency],
-              ["Sector", t.sector ?? "—"],
-              ["Industry", t.industry ?? "—"],
-              ["Price", fmtPrice(t.price, t.currency)],
-              ["Market Cap (Local)", fmtMcap(t.marketCap, t.currency)],
-              ["Market Cap (USD)", fmtMcapUsd(t.marketCapUsd)],
-              ["Avg Daily Volume", fmtVol(t.avgVolume)],
-              ["52W Low", fmtPrice(t.low52, t.currency)],
-              ["52W High", fmtPrice(t.high52, t.currency)],
-              ["% From 52W Low", fmtPct(t.pctFromLow)],
-              ["Trailing P/E", fmtNum(t.pe)],
-              ["5D Performance", fmtPct(t.perf5d)],
-              ["RSI 14D", `${fmtNum(t.rsi14, 1)} (${t.rsiLabel})`],
-              ["ROC 14D", fmtPct(t.roc14)],
-              ["ROC 21D", fmtPct(t.roc21)],
-              ["Price vs 20D MA", `${vsMA(t.price, t.ma20).label} (${fmtPrice(t.ma20, t.currency)})`],
-              ["Price vs 50D MA", `${vsMA(t.price, t.ma50).label} (${fmtPrice(t.ma50, t.currency)})`],
-              ["Price vs 200D MA", `${vsMA(t.price, t.ma200).label} (${fmtPrice(t.ma200, t.currency)})`],
-              ["Earnings Date", t.earningsDate ? new Date(t.earningsDate).toLocaleDateString() : "—"],
-            ].map(([k, v]) => (
-              <tr key={k as string}><td className="text-muted-foreground w-1/2">{k}</td><td className="num">{v as string}</td></tr>
+            {rows.map(({ k, v }) => (
+              <tr key={k}><td className="text-muted-foreground w-1/2">{k}</td><td className="num">{v}</td></tr>
             ))}
           </tbody>
         </table>
