@@ -28,7 +28,7 @@ type Match = SearchResult["matches"][number];
 function TerminalPage() {
   const { t: initialTicker } = Route.useSearch();
   const [query, setQuery] = useState(initialTicker ?? "");
-  const [tab, setTab] = useState<"overview" | "chart" | "scores" | "value" | "momentum" | "cross" | "final">("overview");
+  const [tab, setTab] = useState<"overview" | "chart" | "scores" | "value" | "momentum" | "peers" | "cross" | "scenario" | "final">("overview");
 
   const search = useMutation({ mutationFn: (q: string) => searchTickers({ data: { q } }) });
   const analyze = useMutation({ mutationFn: (t: string) => analyzeTicker({ data: { ticker: t } }) });
@@ -87,7 +87,9 @@ function TerminalPage() {
               {tab === "scores" && <ScoresSection r={result} />}
               {tab === "value" && <ValueSection r={result} />}
               {tab === "momentum" && <MomentumSection r={result} />}
+              {tab === "peers" && <PeersSection r={result} />}
               {tab === "cross" && <CrossSection r={result} />}
+              {tab === "scenario" && <ScenarioSection r={result} />}
               {tab === "final" && <FinalSection r={result} />}
             </div>
             <SharedDisclaimer />
