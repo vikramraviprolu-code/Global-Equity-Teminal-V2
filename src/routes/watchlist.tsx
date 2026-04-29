@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { z } from "zod";
 import { fetchUniverse } from "@/server/screen.functions";
 import { scoreAll } from "@/lib/scores";
-import { fmtNum, fmtPct, fmtMcapUsd, fmtPrice, colorFor } from "@/lib/format";
+import { fmtNum, fmtPct, fmtMcapUsd, fmtPriceDisplay, colorFor } from "@/lib/format";
+import { useDisplayCurrency } from "@/hooks/use-display-currency";
 import { useWatchlistNamed, WATCHLIST_NAMES, readAllWatchlists, type WatchlistName } from "@/hooks/use-watchlist";
 import { SiteNav, Disclaimer } from "@/components/site-nav";
 
@@ -29,6 +30,7 @@ function WatchlistPage() {
   const { list } = Route.useSearch();
   const active: WatchlistName = isValidName(list) ? list : "My Watchlist";
   const { items, remove, clear } = useWatchlistNamed(active);
+  const [ccyMode] = useDisplayCurrency();
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["universe"],
@@ -116,7 +118,7 @@ function WatchlistPage() {
                       <td className="text-primary font-mono">{r.symbol}</td>
                       <td>{r.name}</td>
                       <td className="text-muted-foreground">{r.region}</td>
-                      <td className="num">{fmtPrice(r.price, r.currency)}</td>
+                      <td className="num">{fmtPriceDisplay(r.price, r.currency, r.marketCap, r.marketCapUsd, ccyMode)}</td>
                       <td className="num">{fmtMcapUsd(r.marketCapUsd)}</td>
                       <td className="num">{fmtNum(r.pe, 1)}</td>
                       <td className={`num ${colorFor(r.perf5d)}`}>{fmtPct(r.perf5d)}</td>
