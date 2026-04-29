@@ -92,6 +92,18 @@ export function LandingHero({
               Browse Screener →
             </a>
             <button
+              type="button"
+              onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
+              className="px-5 py-2.5 border border-primary/40 bg-primary/10 text-primary font-mono text-xs uppercase tracking-widest rounded-sm hover:bg-primary/20 transition-colors flex items-center gap-2"
+              title="Open the AI co-pilot"
+            >
+              <span>Ask AI</span>
+              <span className="flex gap-1">
+                <kbd className="inline-flex items-center justify-center min-w-[1.25rem] px-1 py-0 rounded border border-primary/40 bg-background/40 font-mono text-[10px] text-primary">⌘</kbd>
+                <kbd className="inline-flex items-center justify-center min-w-[1.25rem] px-1 py-0 rounded border border-primary/40 bg-background/40 font-mono text-[10px] text-primary">K</kbd>
+              </span>
+            </button>
+            <button
               onClick={() => onPickPreset("quality")}
               className="px-5 py-2.5 border border-border bg-card/40 text-foreground font-mono text-xs uppercase tracking-widest rounded-sm hover:border-primary/40 hover:text-primary transition-colors"
             >
@@ -104,6 +116,9 @@ export function LandingHero({
               Data Sources →
             </Link>
           </div>
+          <p className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground mt-4">
+            Try: <span className="text-foreground/80">"cheap Indian banks with yield &gt; 4%"</span>
+          </p>
         </div>
 
         {/* Live stats panel */}
