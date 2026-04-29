@@ -184,7 +184,7 @@ function ScreenerPage() {
   const { items: watchlist, add: addWatch, remove: removeWatch } = useWatchlist();
 
   const setFilters = (next: Partial<Filters>) =>
-    navigate({ to: "/", search: (prev) => ({ ...prev, ...next, page: next.page ?? 1 }) });
+    navigate({ to: "/", search: (prev: Filters) => ({ ...prev, ...next, page: next.page ?? 1 }) });
   const replaceFilters = (next: Filters) =>
     navigate({ to: "/", search: { ...next, page: 1 } });
 

@@ -25,7 +25,7 @@ export const Route = createFileRoute("/compare")({
 function ComparePage() {
   const navigate = useNavigate();
   const { s: initial } = Route.useSearch();
-  const initialSyms = useMemo(() => (initial ? initial.split(",").map((x) => x.trim()).filter(Boolean) : []), [initial]);
+  const initialSyms = useMemo(() => (initial ? initial.split(",").map((x: string) => x.trim()).filter(Boolean) : []), [initial]);
 
   const [picked, setPicked] = useState<string[]>(initialSyms);
   const [add, setAdd] = useState("");
