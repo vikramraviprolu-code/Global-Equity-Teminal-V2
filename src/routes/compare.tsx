@@ -249,6 +249,34 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
     </tr>
   );
 }
+
+/**
+ * Diff-aware row. When `diffOnly` is true and every value across columns is
+ * identical (string-equal after formatting), the row is hidden so the user
+ * focuses on what actually differs between the picked stocks.
+ */
+function DRow({
+  label,
+  values,
+  diffOnly,
+  render,
+}: {
+  label: string;
+  values: string[];
+  diffOnly: boolean;
+  render: (value: string, index: number) => React.ReactNode;
+}) {
+  const allSame = values.length > 1 && values.every((v) => v === values[0]);
+  if (diffOnly && allSame) return null;
+  return (
+    <tr className={diffOnly && !allSame ? "bg-primary/[0.04]" : ""}>
+      <td className="text-muted-foreground">{label}</td>
+      {values.map((v, i) => (
+        <Fragment key={i}>{render(v, i)}</Fragment>
+      ))}
+    </tr>
+  );
+}
 function Cell({ children, num = false, muted = false, cls = "" }: { children: React.ReactNode; num?: boolean; muted?: boolean; cls?: string }) {
   return (
     <td className={`${num ? "num text-right" : ""} ${muted ? "text-muted-foreground" : ""} ${cls}`}>{children}</td>
