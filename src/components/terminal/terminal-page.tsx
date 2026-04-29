@@ -2,7 +2,8 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getRouteApi } from "@tanstack/react-router";
 import { analyzeTicker, searchTickers } from "@/server/analyze";
-import { fmtNum, fmtPct, fmtMcap, fmtMcapUsd, fmtVol, fmtPrice, colorFor, trendArrow, vsMA } from "@/lib/format";
+import { fmtNum, fmtPct, fmtMcap, fmtMcapUsd, fmtVol, fmtPrice, fmtPriceDisplay, fmtMcapDisplay, colorFor, trendArrow, vsMA } from "@/lib/format";
+import { useDisplayCurrency } from "@/hooks/use-display-currency";
 import { SiteNav, Disclaimer as SharedDisclaimer } from "@/components/site-nav";
 import { PriceChart } from "@/components/price-chart";
 import { useWatchlist } from "@/hooks/use-watchlist";
@@ -268,12 +269,8 @@ function SnapshotBar({ r }: { r: Success }) {
             </button>
           </div>
         </div>
-        <div className="ml-auto flex items-baseline gap-6 font-mono">
-          <Stat label="PRICE" value={fmtPrice(t.price, t.currency)} />
-          <Stat label="5D" value={fmtPct(t.perf5d)} cls={colorFor(t.perf5d)} />
-          <Stat label="RSI" value={fmtNum(t.rsi14, 1)} cls={t.rsi14 == null ? "" : t.rsi14 > 70 ? "text-[color:var(--bear)]" : t.rsi14 < 30 ? "text-[color:var(--bull)]" : ""} />
-          <Stat label="MCAP" value={fmtMcap(t.marketCap, t.currency)} sub={t.marketCapUsd ? fmtMcapUsd(t.marketCapUsd) : undefined} />
-        </div>
+        <SnapshotStats t={t} />
+      </div>
       </div>
       <div className="px-4 py-2 flex flex-wrap gap-3 text-xs font-mono">
         <Pill ok={t.passesGlobal} label={`Liquidity (${t.region}): ${t.passesGlobal ? "PASS" : "FAIL"}`} />
