@@ -1,11 +1,46 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { z } from "zod";
+import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { fetchUniverse } from "@/server/screen.functions";
-import { scoreAll, type ScoredRow } from "@/lib/scores";
+import { scoreAll, scoreRow, type ScoredRow } from "@/lib/scores";
 import { fmtNum, fmtPct, fmtMcapUsd, fmtPrice, fmtVol, colorFor } from "@/lib/format";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { SiteNav } from "@/components/site-nav";
+
+const SORTABLE_KEYS = ["symbol", "name", "sector", "price", "marketCapUsd", "pe", "pb", "dividendYield", "pctFromLow", "perf5d", "rsi14", "value", "momentum", "quality", "risk", "confidence"] as const;
+type SortKey = (typeof SORTABLE_KEYS)[number];
+
+const MA_CROSS_OPTIONS = ["any", "golden", "death", "above50", "above200"] as const;
+type MaCross = (typeof MA_CROSS_OPTIONS)[number];
+
+const searchSchema = z.object({
+  preset: fallback(z.enum(["all", "valueLow", "momentum", "quality", "oversold", "breakout", "reliable"]), "all").default("all"),
+  region: fallback(z.string(), "").default(""),
+  sector: fallback(z.string(), "").default(""),
+  q: fallback(z.string(), "").default(""),
+  minMcap: fallback(z.number(), 0).default(0),
+  minPrice: fallback(z.number(), 0).default(0),
+  minVolume: fallback(z.number(), 0).default(0),
+  peMax: fallback(z.number().nullable(), null).default(null),
+  pbMax: fallback(z.number().nullable(), null).default(null),
+  dyMin: fallback(z.number().nullable(), null).default(null),
+  rsiMin: fallback(z.number(), 0).default(0),
+  rsiMax: fallback(z.number(), 100).default(100),
+  near52wLowPct: fallback(z.number().nullable(), null).default(null),
+  rocMin: fallback(z.number().nullable(), null).default(null),
+  maCross: fallback(z.enum(MA_CROSS_OPTIONS), "any").default("any"),
+  minConfidence: fallback(z.number(), 0).default(0),
+  excludeMock: fallback(z.boolean(), false).default(false),
+  sortBy: fallback(z.enum(SORTABLE_KEYS), "marketCapUsd").default("marketCapUsd"),
+  sortDir: fallback(z.enum(["asc", "desc"]), "desc").default("desc"),
+  page: fallback(z.number().int().min(1), 1).default(1),
+  pageSize: fallback(z.number().int().min(10).max(200), 50).default(50),
+  view: fallback(z.enum(["table", "chart"]), "table").default("table"),
+});
+
+type Filters = z.infer<typeof searchSchema>;
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -16,6 +51,7 @@ export const Route = createFileRoute("/")({
       { property: "og:description", content: "A professional stock discovery and analysis platform. Screen, score, and analyse global equities with evidence-based research." },
     ],
   }),
+  validateSearch: zodValidator(searchSchema),
   loader: ({ context }) => {
     context.queryClient.prefetchQuery({
       queryKey: ["universe"],
@@ -27,7 +63,7 @@ export const Route = createFileRoute("/")({
 });
 
 // ---------------- presets ----------------
-type PresetId = "all" | "valueLow" | "momentum" | "quality" | "oversold" | "breakout" | "reliable";
+type PresetId = Filters["preset"];
 const PRESETS: { id: PresetId; label: string; desc: string }[] = [
   { id: "all", label: "All Stocks", desc: "Entire curated universe with no extra filters" },
   { id: "valueLow", label: "Value Near Lows", desc: "P/E ≤ 10, within 10% of 52W low, large cap, medium+ confidence" },
@@ -38,54 +74,46 @@ const PRESETS: { id: PresetId; label: string; desc: string }[] = [
   { id: "reliable", label: "Data Reliable Only", desc: "High data confidence (≥85)" },
 ];
 
-// ---------------- filter type ----------------
-type Filters = {
-  preset: PresetId;
-  region: string; // "" = all
-  sector: string;
-  search: string;
-  minMcap: number; // USD
-  minPrice: number;
-  minVolume: number;
-  peMax: number | null;
-  rsiMin: number;
-  rsiMax: number;
-  near52wLowPct: number | null; // null=disabled, else max %
-  minConfidence: number;
-  excludeMock: boolean;
-};
-const DEFAULT_FILTERS: Filters = {
-  preset: "all", region: "", sector: "", search: "",
-  minMcap: 0, minPrice: 0, minVolume: 0,
-  peMax: null, rsiMin: 0, rsiMax: 100, near52wLowPct: null,
-  minConfidence: 0, excludeMock: false,
-};
+const DEFAULT_FILTERS: Filters = searchSchema.parse({});
 
-function applyPreset(p: PresetId, base: Filters): Filters {
+function applyPreset(p: PresetId): Filters {
+  const base: Filters = { ...DEFAULT_FILTERS, preset: p };
   switch (p) {
-    case "valueLow": return { ...base, preset: p, peMax: 10, near52wLowPct: 10, minMcap: 2e9, minConfidence: 60 };
-    case "momentum": return { ...base, preset: p, rsiMin: 40, rsiMax: 70, peMax: null, near52wLowPct: null };
-    case "quality":  return { ...base, preset: p, minMcap: 10e9, minConfidence: 60 };
-    case "oversold": return { ...base, preset: p, rsiMin: 0, rsiMax: 35, near52wLowPct: 20 };
-    case "breakout": return { ...base, preset: p, rsiMin: 50, rsiMax: 75 };
-    case "reliable": return { ...base, preset: p, minConfidence: 85 };
-    default:         return { ...DEFAULT_FILTERS, preset: "all" };
+    case "valueLow": return { ...base, peMax: 10, near52wLowPct: 10, minMcap: 2e9, minConfidence: 60 };
+    case "momentum": return { ...base, rsiMin: 40, rsiMax: 70, rocMin: 0, maCross: "above50" };
+    case "quality":  return { ...base, minMcap: 10e9, minConfidence: 60 };
+    case "oversold": return { ...base, rsiMin: 0, rsiMax: 35, near52wLowPct: 20 };
+    case "breakout": return { ...base, rsiMin: 50, rsiMax: 75, maCross: "above50", rocMin: 0 };
+    case "reliable": return { ...base, minConfidence: 85, excludeMock: true };
+    default:         return base;
   }
 }
 
 function passes(r: ScoredRow, f: Filters): boolean {
   if (f.region && r.region !== f.region) return false;
   if (f.sector && r.sector !== f.sector) return false;
-  if (f.search) {
-    const q = f.search.toLowerCase();
+  if (f.q) {
+    const q = f.q.toLowerCase();
     if (!r.symbol.toLowerCase().includes(q) && !r.name.toLowerCase().includes(q)) return false;
   }
   if (f.minMcap > 0 && (r.marketCapUsd ?? 0) < f.minMcap) return false;
   if (f.minPrice > 0 && (r.price ?? 0) < f.minPrice) return false;
   if (f.minVolume > 0 && (r.avgVolume ?? 0) < f.minVolume) return false;
   if (f.peMax != null && (r.pe == null || r.pe <= 0 || r.pe > f.peMax)) return false;
+  if (f.pbMax != null && (r.pb == null || r.pb <= 0 || r.pb > f.pbMax)) return false;
+  if (f.dyMin != null && (r.dividendYield == null || r.dividendYield < f.dyMin)) return false;
   if (r.rsi14 != null && (r.rsi14 < f.rsiMin || r.rsi14 > f.rsiMax)) return false;
   if (f.near52wLowPct != null && (r.pctFromLow == null || r.pctFromLow > f.near52wLowPct)) return false;
+  if (f.rocMin != null) {
+    if ((r.roc14 ?? -Infinity) < f.rocMin && (r.roc21 ?? -Infinity) < f.rocMin) return false;
+  }
+  if (f.maCross !== "any") {
+    const { ma50, ma200, price } = r;
+    if (f.maCross === "golden" && !(ma50 != null && ma200 != null && ma50 > ma200)) return false;
+    if (f.maCross === "death" && !(ma50 != null && ma200 != null && ma50 < ma200)) return false;
+    if (f.maCross === "above50" && !(price != null && r.ma50 != null && price > r.ma50)) return false;
+    if (f.maCross === "above200" && !(price != null && ma200 != null && price > ma200)) return false;
+  }
   if (f.minConfidence > 0 && r.scores.confidence < f.minConfidence) return false;
   if (f.excludeMock && r.isMock) return false;
 
@@ -109,16 +137,60 @@ function passes(r: ScoredRow, f: Filters): boolean {
   return true;
 }
 
+// ---------------- column visibility ----------------
+const ALL_COLUMNS = [
+  { key: "symbol", label: "Ticker", default: true },
+  { key: "name", label: "Company", default: true },
+  { key: "region", label: "Region", default: true },
+  { key: "sector", label: "Sector", default: true },
+  { key: "price", label: "Price", default: true },
+  { key: "marketCapUsd", label: "Mcap (USD)", default: true },
+  { key: "pe", label: "P/E", default: true },
+  { key: "pb", label: "P/B", default: false },
+  { key: "dividendYield", label: "Div Yield %", default: false },
+  { key: "pctFromLow", label: "From 52W Low", default: true },
+  { key: "perf5d", label: "5D %", default: true },
+  { key: "rsi14", label: "RSI", default: true },
+  { key: "value", label: "Value", default: true },
+  { key: "momentum", label: "Mom", default: true },
+  { key: "quality", label: "Qual", default: true },
+  { key: "risk", label: "Risk", default: true },
+  { key: "confidence", label: "Conf", default: true },
+] as const;
+type ColumnKey = (typeof ALL_COLUMNS)[number]["key"];
+const COL_STORAGE = "screener.columns.v2";
+
+function loadCols(): Set<ColumnKey> {
+  try {
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem(COL_STORAGE) : null;
+    if (raw) return new Set(JSON.parse(raw));
+  } catch {}
+  return new Set(ALL_COLUMNS.filter((c) => c.default).map((c) => c.key));
+}
+function saveCols(s: Set<ColumnKey>) {
+  try { localStorage.setItem(COL_STORAGE, JSON.stringify([...s])); } catch {}
+}
+
 // ---------------- COMPONENT ----------------
 function ScreenerPage() {
   const navigate = useNavigate();
+  const filters = Route.useSearch();
   const { items: watchlist, add: addWatch, remove: removeWatch } = useWatchlist();
 
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
-  const [view, setView] = useState<"table" | "chart">("table");
-  const [sortBy, setSortBy] = useState<keyof ScoredRow | "value" | "momentum" | "quality" | "risk" | "confidence">("marketCapUsd");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const setFilters = (next: Partial<Filters>) =>
+    navigate({ to: "/", search: (prev) => ({ ...prev, ...next, page: next.page ?? 1 }) });
+  const replaceFilters = (next: Filters) =>
+    navigate({ to: "/", search: { ...next, page: 1 } });
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [columns, setColumns] = useState<Set<ColumnKey>>(() => loadCols());
+  const [colMenuOpen, setColMenuOpen] = useState(false);
+  const toggleCol = (k: ColumnKey) => {
+    const next = new Set(columns);
+    if (next.has(k)) next.delete(k); else next.add(k);
+    setColumns(next); saveCols(next);
+  };
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["universe"],
@@ -130,23 +202,28 @@ function ScreenerPage() {
   const filtered = useMemo(() => scored.filter((r) => passes(r, filters)), [scored, filters]);
   const sorted = useMemo(() => {
     const arr = [...filtered];
-    const key = sortBy as string;
+    const key = filters.sortBy;
     arr.sort((a, b) => {
       const av = key in a.scores ? (a.scores as any)[key] : (a as any)[key];
       const bv = key in b.scores ? (b.scores as any)[key] : (b as any)[key];
       const an = av == null ? -Infinity : av;
       const bn = bv == null ? -Infinity : bv;
       if (typeof an === "string" || typeof bn === "string") {
-        return sortDir === "asc" ? String(an).localeCompare(String(bn)) : String(bn).localeCompare(String(an));
+        return filters.sortDir === "asc" ? String(an).localeCompare(String(bn)) : String(bn).localeCompare(String(an));
       }
-      return sortDir === "asc" ? an - bn : bn - an;
+      return filters.sortDir === "asc" ? an - bn : bn - an;
     });
     return arr;
-  }, [filtered, sortBy, sortDir]);
+  }, [filtered, filters.sortBy, filters.sortDir]);
 
-  const toggleSort = (k: typeof sortBy) => {
-    if (sortBy === k) setSortDir(sortDir === "asc" ? "desc" : "asc");
-    else { setSortBy(k); setSortDir("desc"); }
+  const totalPages = Math.max(1, Math.ceil(sorted.length / filters.pageSize));
+  const page = Math.min(filters.page, totalPages);
+  const pageStart = (page - 1) * filters.pageSize;
+  const pageRows = sorted.slice(pageStart, pageStart + filters.pageSize);
+
+  const toggleSort = (k: SortKey) => {
+    if (filters.sortBy === k) setFilters({ sortDir: filters.sortDir === "asc" ? "desc" : "asc" });
+    else setFilters({ sortBy: k, sortDir: "desc" });
   };
 
   const toggleSelect = (sym: string) => {
@@ -154,8 +231,13 @@ function ScreenerPage() {
     if (next.has(sym)) next.delete(sym); else next.add(sym);
     setSelected(next);
   };
+  const toggleExpand = (sym: string) => {
+    const next = new Set(expanded);
+    if (next.has(sym)) next.delete(sym); else next.add(sym);
+    setExpanded(next);
+  };
 
-  const onPickPreset = (p: PresetId) => setFilters((f) => applyPreset(p, DEFAULT_FILTERS));
+  const onPickPreset = (p: PresetId) => replaceFilters(applyPreset(p));
 
   const sectors = useMemo(() => Array.from(new Set(scored.map((r) => r.sector))).sort(), [scored]);
 
@@ -165,13 +247,16 @@ function ScreenerPage() {
       <main className="flex-1">
         <Hero meta={data?.meta} />
         <PresetBar current={filters.preset} onPick={onPickPreset} />
-        <FilterBar filters={filters} setFilters={setFilters} sectors={sectors} />
+        <FilterBar filters={filters} setFilters={setFilters} sectors={sectors} onReset={() => replaceFilters(DEFAULT_FILTERS)} />
 
         <div className="max-w-[1400px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-border">
           <div className="text-xs font-mono text-muted-foreground">
             <span className="text-foreground">{sorted.length}</span> of <span className="text-foreground">{scored.length}</span> stocks ·
             <span className="ml-2">Mock: <span className="text-primary">{data?.meta.mockCount ?? 0}</span></span> ·
             <span className="ml-2">Live: <span className="text-[color:var(--bull)]">{data?.meta.liveCount ?? 0}</span></span>
+            {sorted.length > 0 && (
+              <span className="ml-2">· Page <span className="text-foreground">{page}</span>/{totalPages}</span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {selected.size > 0 && (
@@ -182,29 +267,41 @@ function ScreenerPage() {
                 + Add {selected.size} to watchlist
               </button>
             )}
-            <ViewToggle view={view} setView={setView} />
+            {filters.view === "table" && (
+              <ColumnMenu open={colMenuOpen} setOpen={setColMenuOpen} columns={columns} toggleCol={toggleCol} />
+            )}
+            <ViewToggle view={filters.view} setView={(v) => setFilters({ view: v })} />
           </div>
         </div>
 
         <div className="max-w-[1400px] mx-auto px-4 py-4">
           {isLoading && <LoadingState />}
           {isError && <ErrorState onRetry={refetch} />}
-          {!isLoading && !isError && sorted.length === 0 && <EmptyState onReset={() => setFilters(DEFAULT_FILTERS)} />}
-          {!isLoading && !isError && sorted.length > 0 && view === "table" && (
-            <ResultsTable
-              rows={sorted}
-              sortBy={sortBy} sortDir={sortDir} onSort={toggleSort}
-              selected={selected} toggleSelect={toggleSelect}
-              watchlist={watchlist} onAddOne={(s) => addWatch([s])} onRemoveOne={removeWatch}
-              onOpen={(s) => navigate({ to: "/terminal", search: { t: s } as any })}
-            />
+          {!isLoading && !isError && sorted.length === 0 && <EmptyState onReset={() => replaceFilters(DEFAULT_FILTERS)} />}
+          {!isLoading && !isError && sorted.length > 0 && filters.view === "table" && (
+            <>
+              <ResultsTable
+                rows={pageRows} columns={columns}
+                sortBy={filters.sortBy} sortDir={filters.sortDir} onSort={toggleSort}
+                selected={selected} toggleSelect={toggleSelect}
+                expanded={expanded} toggleExpand={toggleExpand}
+                watchlist={watchlist} onAddOne={(s) => addWatch([s])} onRemoveOne={removeWatch}
+                onOpen={(s) => navigate({ to: "/terminal", search: { t: s } as any })}
+              />
+              <Pager page={page} totalPages={totalPages} pageSize={filters.pageSize} total={sorted.length}
+                onPage={(p) => setFilters({ page: p })} onPageSize={(s) => setFilters({ pageSize: s, page: 1 })} />
+            </>
           )}
-          {!isLoading && !isError && sorted.length > 0 && view === "chart" && (
-            <ResultsCards
-              rows={sorted}
-              watchlist={watchlist} onAddOne={(s) => addWatch([s])} onRemoveOne={removeWatch}
-              onOpen={(s) => navigate({ to: "/terminal", search: { t: s } as any })}
-            />
+          {!isLoading && !isError && sorted.length > 0 && filters.view === "chart" && (
+            <>
+              <ResultsCards
+                rows={pageRows}
+                watchlist={watchlist} onAddOne={(s) => addWatch([s])} onRemoveOne={removeWatch}
+                onOpen={(s) => navigate({ to: "/terminal", search: { t: s } as any })}
+              />
+              <Pager page={page} totalPages={totalPages} pageSize={filters.pageSize} total={sorted.length}
+                onPage={(p) => setFilters({ page: p })} onPageSize={(s) => setFilters({ pageSize: s, page: 1 })} />
+            </>
           )}
         </div>
 
@@ -260,15 +357,15 @@ function PresetBar({ current, onPick }: { current: PresetId; onPick: (p: PresetI
   );
 }
 
-function FilterBar({ filters, setFilters, sectors }: {
-  filters: Filters; setFilters: (f: Filters) => void; sectors: string[];
+function FilterBar({ filters, setFilters, sectors, onReset }: {
+  filters: Filters; setFilters: (next: Partial<Filters>) => void; sectors: string[]; onReset: () => void;
 }) {
-  const set = <K extends keyof Filters>(k: K, v: Filters[K]) => setFilters({ ...filters, [k]: v });
+  const set = <K extends keyof Filters>(k: K, v: Filters[K]) => setFilters({ [k]: v } as Partial<Filters>);
   return (
     <div className="border-b border-border bg-card/30">
       <div className="max-w-[1400px] mx-auto px-4 py-3 flex flex-wrap items-end gap-3">
         <Field label="Search">
-          <input value={filters.search} onChange={(e) => set("search", e.target.value)} placeholder="Ticker or company"
+          <input value={filters.q} onChange={(e) => set("q", e.target.value)} placeholder="Ticker or company"
             className="bg-input border border-border rounded px-2 py-1 text-xs font-mono w-44 focus:border-primary outline-none" />
         </Field>
         <Field label="Region">
@@ -299,6 +396,14 @@ function FilterBar({ filters, setFilters, sectors }: {
           <input type="number" value={filters.peMax ?? ""} onChange={(e) => set("peMax", e.target.value === "" ? null : Number(e.target.value))} placeholder="—"
             className="bg-input border border-border rounded px-2 py-1 text-xs font-mono w-20 focus:border-primary outline-none" />
         </Field>
+        <Field label="P/B max">
+          <input type="number" step="0.1" value={filters.pbMax ?? ""} onChange={(e) => set("pbMax", e.target.value === "" ? null : Number(e.target.value))} placeholder="—"
+            className="bg-input border border-border rounded px-2 py-1 text-xs font-mono w-20 focus:border-primary outline-none" />
+        </Field>
+        <Field label="Div Yield ≥ %">
+          <input type="number" step="0.1" value={filters.dyMin ?? ""} onChange={(e) => set("dyMin", e.target.value === "" ? null : Number(e.target.value))} placeholder="—"
+            className="bg-input border border-border rounded px-2 py-1 text-xs font-mono w-20 focus:border-primary outline-none" />
+        </Field>
         <Field label={`RSI ${filters.rsiMin}-${filters.rsiMax}`}>
           <div className="flex items-center gap-1">
             <input type="number" min={0} max={100} value={filters.rsiMin} onChange={(e) => set("rsiMin", Math.max(0, Math.min(100, Number(e.target.value))))}
@@ -307,6 +412,20 @@ function FilterBar({ filters, setFilters, sectors }: {
             <input type="number" min={0} max={100} value={filters.rsiMax} onChange={(e) => set("rsiMax", Math.max(0, Math.min(100, Number(e.target.value))))}
               className="bg-input border border-border rounded px-2 py-1 text-xs font-mono w-14 focus:border-primary outline-none" />
           </div>
+        </Field>
+        <Field label="ROC min %">
+          <input type="number" value={filters.rocMin ?? ""} onChange={(e) => set("rocMin", e.target.value === "" ? null : Number(e.target.value))} placeholder="—"
+            className="bg-input border border-border rounded px-2 py-1 text-xs font-mono w-20 focus:border-primary outline-none" />
+        </Field>
+        <Field label="MA cross">
+          <select value={filters.maCross} onChange={(e) => set("maCross", e.target.value as MaCross)}
+            className="bg-input border border-border rounded px-2 py-1 text-xs font-mono w-32 focus:border-primary outline-none">
+            <option value="any">Any</option>
+            <option value="golden">Golden (50&gt;200)</option>
+            <option value="death">Death (50&lt;200)</option>
+            <option value="above50">Price &gt; 50D</option>
+            <option value="above200">Price &gt; 200D</option>
+          </select>
         </Field>
         <Field label="≤ % from 52W low">
           <input type="number" value={filters.near52wLowPct ?? ""} onChange={(e) => set("near52wLowPct", e.target.value === "" ? null : Number(e.target.value))} placeholder="—"
@@ -324,10 +443,62 @@ function FilterBar({ filters, setFilters, sectors }: {
           <input type="checkbox" checked={filters.excludeMock} onChange={(e) => set("excludeMock", e.target.checked)} />
           Exclude mock
         </label>
-        <button onClick={() => setFilters(DEFAULT_FILTERS)}
+        <button onClick={onReset}
           className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded">
           Reset
         </button>
+      </div>
+    </div>
+  );
+}
+
+function ColumnMenu({ open, setOpen, columns, toggleCol }: {
+  open: boolean; setOpen: (b: boolean) => void; columns: Set<ColumnKey>; toggleCol: (k: ColumnKey) => void;
+}) {
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen(!open)}
+        className="font-mono text-[10px] uppercase tracking-wider border border-border px-3 py-1.5 rounded hover:text-foreground text-muted-foreground">
+        Columns ({columns.size})
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 mt-1 z-20 panel p-2 w-56 max-h-80 overflow-y-auto">
+            {ALL_COLUMNS.map((c) => (
+              <label key={c.key} className="flex items-center gap-2 px-2 py-1 text-xs hover:bg-primary/5 cursor-pointer rounded">
+                <input type="checkbox" checked={columns.has(c.key)} onChange={() => toggleCol(c.key)} />
+                <span>{c.label}</span>
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function Pager({ page, totalPages, pageSize, total, onPage, onPageSize }: {
+  page: number; totalPages: number; pageSize: number; total: number;
+  onPage: (p: number) => void; onPageSize: (s: number) => void;
+}) {
+  if (total === 0) return null;
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 px-1 text-xs font-mono text-muted-foreground">
+      <div>Showing <span className="text-foreground">{(page - 1) * pageSize + 1}</span>–<span className="text-foreground">{Math.min(page * pageSize, total)}</span> of <span className="text-foreground">{total}</span></div>
+      <div className="flex items-center gap-2">
+        <label className="flex items-center gap-1">
+          <span>Per page</span>
+          <select value={pageSize} onChange={(e) => onPageSize(Number(e.target.value))}
+            className="bg-input border border-border rounded px-2 py-1 focus:border-primary outline-none">
+            {[25, 50, 100, 200].map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
+        <button disabled={page <= 1} onClick={() => onPage(1)} className="border border-border px-2 py-1 rounded disabled:opacity-30 hover:text-foreground">«</button>
+        <button disabled={page <= 1} onClick={() => onPage(page - 1)} className="border border-border px-2 py-1 rounded disabled:opacity-30 hover:text-foreground">‹ Prev</button>
+        <span className="text-foreground">{page} / {totalPages}</span>
+        <button disabled={page >= totalPages} onClick={() => onPage(page + 1)} className="border border-border px-2 py-1 rounded disabled:opacity-30 hover:text-foreground">Next ›</button>
+        <button disabled={page >= totalPages} onClick={() => onPage(totalPages)} className="border border-border px-2 py-1 rounded disabled:opacity-30 hover:text-foreground">»</button>
       </div>
     </div>
   );

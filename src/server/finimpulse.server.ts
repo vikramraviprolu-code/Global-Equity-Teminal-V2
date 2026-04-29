@@ -92,6 +92,8 @@ export type ScreenerRow = {
   marketCapUsd: number | null;
   avgVolume: number | null;
   pe: number | null;
+  pb: number | null;
+  dividendYield: number | null; // percent (e.g. 2.5 = 2.5%)
   high52: number | null;
   low52: number | null;
   pctFromLow: number | null;
@@ -130,6 +132,8 @@ export function buildMockRow(u: {
   const ma50 = +(price * (0.92 + pseudo(sym, "m50") * 0.14)).toFixed(2);
   const ma200 = +(price * (0.85 + pseudo(sym, "m200") * 0.25)).toFixed(2);
   const pe = 5 + pseudo(sym, "pe") * 45;
+  const pb = +(0.5 + pseudo(sym, "pb") * 6).toFixed(2);
+  const dividendYield = +(pseudo(sym, "dy") * 5).toFixed(2);
   const mcapBase = u.region === "US" ? 5e10 : 2e10;
   const marketCapUsd = mcapBase * (0.4 + pseudo(sym, "mc") * 8);
   const fxToUsd: Record<string, number> = { USD: 1, EUR: 1.1, GBP: 1.27, CHF: 1.13, INR: 0.012, JPY: 0.0067, HKD: 0.128, KRW: 0.00073, TWD: 0.031, AUD: 0.66, SGD: 0.74, CNY: 0.14 };
@@ -148,7 +152,7 @@ export function buildMockRow(u: {
   return {
     symbol: sym, name: u.name, exchange: u.exchange, country: u.country, region: u.region,
     currency: u.currency, sector: u.sector, industry: u.industry,
-    price, marketCap, marketCapUsd, avgVolume, pe,
+    price, marketCap, marketCapUsd, avgVolume, pe, pb, dividendYield,
     high52, low52,
     pctFromLow: +pctFromLow.toFixed(2), pctFromHigh: +pctFromHigh.toFixed(2),
     perf5d: +perf5d.toFixed(2), rsi14: +rsi14.toFixed(1),
@@ -215,6 +219,8 @@ export async function fetchScreenerRow(u: {
       marketCapUsd: searchItem?.amount_usd ?? null,
       avgVolume: searchItem?.average_daily_volume_3_month ?? searchItem?.average_daily_volume_10_day ?? summary?.average_volume ?? null,
       pe: summary?.trailing_pe ?? null,
+      pb: summary?.price_to_book ?? null,
+      dividendYield: summary?.dividend_yield != null ? +(Number(summary.dividend_yield) * 100).toFixed(2) : (summary?.trailing_annual_dividend_yield != null ? +(Number(summary.trailing_annual_dividend_yield) * 100).toFixed(2) : null),
       high52, low52,
       pctFromLow: pctFromLow != null ? +pctFromLow.toFixed(2) : null,
       pctFromHigh: pctFromHigh != null ? +pctFromHigh.toFixed(2) : null,

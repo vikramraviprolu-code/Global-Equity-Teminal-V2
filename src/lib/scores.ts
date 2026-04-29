@@ -49,6 +49,15 @@ export function scoreRow(r: ScreenerRow): Scores {
     else if (r.pctFromLow >= 80) { v -= 8; vReasons.push(`Far from 52W low (${r.pctFromLow.toFixed(0)}%)`); }
   }
   if ((r.marketCapUsd ?? 0) >= 10e9) { v += 4; vReasons.push("Large-cap liquidity"); }
+  if (r.pb != null && r.pb > 0) {
+    if (r.pb <= 1) { v += 10; vReasons.push(`P/B ${r.pb.toFixed(2)} ≤ 1 (book bargain)`); }
+    else if (r.pb <= 3) { v += 4; vReasons.push(`P/B ${r.pb.toFixed(2)} reasonable`); }
+    else if (r.pb > 8) { v -= 6; vReasons.push(`P/B ${r.pb.toFixed(2)} rich`); }
+  }
+  if (r.dividendYield != null && r.dividendYield > 0) {
+    if (r.dividendYield >= 4) { v += 6; vReasons.push(`Dividend yield ${r.dividendYield.toFixed(2)}% (high)`); }
+    else if (r.dividendYield >= 2) { v += 3; vReasons.push(`Dividend yield ${r.dividendYield.toFixed(2)}%`); }
+  }
 
   // ---- momentum ----
   let m = 50;
@@ -71,6 +80,14 @@ export function scoreRow(r: ScreenerRow): Scores {
   }
   if (r.price != null && r.ma200 != null) {
     if (r.price > r.ma200) { m += 7; mReasons.push("Above 200D MA"); } else { m -= 8; mReasons.push("Below 200D MA"); }
+  }
+  // MA cross signals
+  if (r.ma50 != null && r.ma200 != null) {
+    if (r.ma50 > r.ma200) { m += 5; mReasons.push("Golden cross (50D > 200D MA)"); }
+    else if (r.ma50 < r.ma200) { m -= 5; mReasons.push("Death cross (50D < 200D MA)"); }
+  }
+  if (r.ma20 != null && r.ma50 != null) {
+    if (r.ma20 > r.ma50) { m += 3; mReasons.push("20D MA above 50D MA"); }
   }
 
   // ---- quality (verified-data only) ----
