@@ -81,6 +81,14 @@ export function scoreRow(r: ScreenerRow): Scores {
   if (r.price != null && r.ma200 != null) {
     if (r.price > r.ma200) { m += 7; mReasons.push("Above 200D MA"); } else { m -= 8; mReasons.push("Below 200D MA"); }
   }
+  // MA cross signals
+  if (r.ma50 != null && r.ma200 != null) {
+    if (r.ma50 > r.ma200) { m += 5; mReasons.push("Golden cross (50D > 200D MA)"); }
+    else if (r.ma50 < r.ma200) { m -= 5; mReasons.push("Death cross (50D < 200D MA)"); }
+  }
+  if (r.ma20 != null && r.ma50 != null) {
+    if (r.ma20 > r.ma50) { m += 3; mReasons.push("20D MA above 50D MA"); }
+  }
 
   // ---- quality (verified-data only) ----
   let q = 50;
