@@ -219,6 +219,8 @@ export async function fetchScreenerRow(u: {
       marketCapUsd: searchItem?.amount_usd ?? null,
       avgVolume: searchItem?.average_daily_volume_3_month ?? searchItem?.average_daily_volume_10_day ?? summary?.average_volume ?? null,
       pe: summary?.trailing_pe ?? null,
+      pb: summary?.price_to_book ?? null,
+      dividendYield: summary?.dividend_yield != null ? +(Number(summary.dividend_yield) * 100).toFixed(2) : (summary?.trailing_annual_dividend_yield != null ? +(Number(summary.trailing_annual_dividend_yield) * 100).toFixed(2) : null),
       high52, low52,
       pctFromLow: pctFromLow != null ? +pctFromLow.toFixed(2) : null,
       pctFromHigh: pctFromHigh != null ? +pctFromHigh.toFixed(2) : null,
