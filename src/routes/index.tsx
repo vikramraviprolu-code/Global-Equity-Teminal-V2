@@ -190,6 +190,7 @@ function ScreenerPage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [columns, setColumns] = useState<Set<ColumnKey>>(() => loadCols());
   const [colMenuOpen, setColMenuOpen] = useState(false);
+  const snapshotRef = useRef<HTMLDivElement>(null);
   const toggleCol = (k: ColumnKey) => {
     const next = new Set(columns);
     if (next.has(k)) next.delete(k); else next.add(k);
