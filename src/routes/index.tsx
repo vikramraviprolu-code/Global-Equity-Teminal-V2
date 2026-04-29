@@ -600,7 +600,7 @@ function ResultsTable({ rows, columns, sortBy, sortDir, onSort, selected, toggle
     );
   };
   // count visible columns for expanded-row colspan
-  const visibleCount = 3 /* checkbox + expand + watch */ + ALL_COLUMNS.filter((c) => has(c.key)).length;
+  const visibleCount = 3 /* checkbox + expand + watch */ + 1 /* trend sparkline */ + ALL_COLUMNS.filter((c) => has(c.key)).length;
   return (
     <div className="panel overflow-x-auto">
       <table className="term">
