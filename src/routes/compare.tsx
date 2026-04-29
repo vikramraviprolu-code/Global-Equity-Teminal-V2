@@ -129,6 +129,8 @@ function ComparePage() {
           </div>
         )}
 
+        {rows.length > 0 && <RadarPanel rows={rows} />}
+
         {rows.length > 0 && (
           <div className="panel overflow-x-auto mt-4">
             <table className="term">
