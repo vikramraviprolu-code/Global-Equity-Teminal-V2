@@ -618,10 +618,89 @@ function Thesis({ title, cls, children }: { title: string; cls: string; children
   );
 }
 
-function Disclaimer() {
+// ---------------- Chart Section ----------------
+function ChartSection({ r }: { r: Success }) {
+  const t = r.target;
   return (
-    <p className="mt-8 text-[11px] text-muted-foreground border-t border-border pt-4 max-w-3xl mx-auto text-center leading-relaxed">
-      This analysis is for informational purposes only and is not financial advice. Investors should conduct their own research or consult a qualified financial advisor before making investment decisions. Data provided by FinImpulse. Cross-market price comparisons are avoided; market cap is normalized to USD where available.
-    </p>
+    <div className="space-y-4">
+      <PriceChart
+        closes={t.closes ?? []}
+        ma20={t.ma20}
+        ma50={t.ma50}
+        ma200={t.ma200}
+        high52={t.high52}
+        low52={t.low52}
+        rsi={t.rsi14}
+        currency={t.currency}
+      />
+      <div className="panel">
+        <div className="panel-header">Technical Summary</div>
+        <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono">
+          <Indicator label="Price" value={fmtPrice(t.price, t.currency)} />
+          <Indicator label="52W Low" value={fmtPrice(t.low52, t.currency)} />
+          <Indicator label="52W High" value={fmtPrice(t.high52, t.currency)} />
+          <Indicator label="% From Low" value={fmtPct(t.pctFromLow)} />
+          <Indicator label="MA 20" value={fmtPrice(t.ma20, t.currency)} />
+          <Indicator label="MA 50" value={fmtPrice(t.ma50, t.currency)} />
+          <Indicator label="MA 200" value={fmtPrice(t.ma200, t.currency)} />
+          <Indicator label="RSI 14" value={`${fmtNum(t.rsi14, 1)} (${t.rsiLabel})`} />
+        </div>
+      </div>
+    </div>
   );
 }
+
+// ---------------- Scores Section ----------------
+function ScoresSection({ r }: { r: Success }) {
+  const t = r.target;
+  // Adapt StockMetrics to ScreenerRow-like shape for scoreRow
+  const scoreInput = useMemo(() => ({
+    symbol: t.symbol, name: t.companyName, exchange: t.exchange ?? "",
+    country: t.country ?? "", region: t.region, currency: t.currency,
+    sector: t.sector ?? "", industry: t.industry ?? "",
+    price: t.price, marketCap: t.marketCap, marketCapUsd: t.marketCapUsd,
+    avgVolume: t.avgVolume, pe: t.pe, high52: t.high52, low52: t.low52,
+    pctFromLow: t.pctFromLow, pctFromHigh: null,
+    perf5d: t.perf5d, rsi14: t.rsi14, roc14: t.roc14, roc21: t.roc21,
+    ma20: t.ma20, ma50: t.ma50, ma200: t.ma200,
+    closes: t.closes ?? [], isMock: false, source: "Finimpulse",
+    retrievedAt: new Date().toISOString(),
+  }), [t]);
+  // Lazy-imported scoring (keep client bundle clean)
+  const { scoreRow } = require("@/lib/scores") as typeof import("@/lib/scores");
+  const s = scoreRow(scoreInput as any);
+
+  const cards = [
+    { label: "Value", val: s.value, b: s.valueLabel, reasons: s.valueReasons, color: "var(--bull)" },
+    { label: "Momentum", val: s.momentum, b: s.momentumLabel, reasons: s.momentumReasons, color: "var(--primary)" },
+    { label: "Quality", val: s.quality, b: s.qualityLabel, reasons: s.qualityReasons, color: "var(--cyan)" },
+    { label: "Risk", val: s.risk, b: s.riskLabel, reasons: s.riskReasons, color: "var(--bear)" },
+    { label: "Confidence", val: s.confidence, b: s.confidenceLabel, reasons: s.confidenceReasons, color: "var(--primary)" },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {cards.map((c) => (
+        <div key={c.label} className="panel">
+          <div className="panel-header flex items-center justify-between">
+            <span>{c.label}</span>
+            <span className="text-xs text-muted-foreground">{c.b}</span>
+          </div>
+          <div className="p-4">
+            <div className="flex items-baseline gap-2">
+              <span className="font-mono text-3xl" style={{ color: c.color }}>{c.val}</span>
+              <span className="text-xs text-muted-foreground">/100</span>
+            </div>
+            <div className="mt-2 h-1.5 w-full bg-muted rounded overflow-hidden">
+              <div className="h-full" style={{ width: `${c.val}%`, background: c.color }} />
+            </div>
+            <ul className="mt-3 text-[11px] text-muted-foreground space-y-1 list-disc pl-4">
+              {c.reasons.slice(0, 5).map((r, i) => <li key={i}>{r}</li>)}
+            </ul>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
