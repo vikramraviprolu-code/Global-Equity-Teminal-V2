@@ -7,6 +7,7 @@ import { SiteNav, Disclaimer as SharedDisclaimer } from "@/components/site-nav";
 import { PriceChart } from "@/components/price-chart";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { scoreRow } from "@/lib/scores";
+import { backtestMaCross, computeHistoricalReturns } from "@/lib/backtest";
 
 const routeApi = getRouteApi("/terminal");
 
@@ -878,7 +879,103 @@ function ScenarioSection({ r }: { r: Success }) {
             </ul>
           </div>
         </div>
+
+        <BacktestPanel closes={t.closes ?? []} symbol={t.symbol} />
       </div>
+    </div>
+  );
+}
+
+// ---------------- Historical Performance + MA Cross Backtest ----------------
+function BacktestPanel({ closes, symbol }: { closes: number[]; symbol: string }) {
+  const hist = useMemo(() => computeHistoricalReturns(closes), [closes]);
+  const bt = useMemo(() => backtestMaCross(closes, 50, 200), [closes]);
+
+  const fmtSigned = (n: number | null, digits = 1) => {
+    if (n == null || !Number.isFinite(n)) return "—";
+    const s = n >= 0 ? "+" : "";
+    return `${s}${n.toFixed(digits)}%`;
+  };
+  const cls = (n: number | null) => (n == null ? "" : n >= 0 ? "text-[color:var(--bull)]" : "text-[color:var(--bear)]");
+
+  return (
+    <>
+      <div className="panel">
+        <div className="panel-header">Historical Performance · {symbol}</div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border">
+          {hist.windows.map((w) => (
+            <div key={w.label} className="bg-card p-4 text-center">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{w.label} return</div>
+              <div className={`font-mono text-lg mt-1 ${cls(w.returnPct)}`}>{fmtSigned(w.returnPct)}</div>
+            </div>
+          ))}
+        </div>
+        <div className="px-4 py-2 text-[10px] text-muted-foreground border-t border-border">
+          Computed from {hist.observations} daily closes (adjusted). Windows that exceed available history show "—".
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-header">Backtest · 50D/200D MA Cross (Long-Only)</div>
+        {bt.insufficientData ? (
+          <div className="p-5 text-xs text-muted-foreground">
+            Need at least ~210 daily closes to evaluate the 50/200 cross. Currently have {bt.observations}.
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-px bg-border">
+              <Metric label="Strategy total return" value={fmtSigned(bt.totalReturnPct)} cls={cls(bt.totalReturnPct)} />
+              <Metric label="Annualized" value={fmtSigned(bt.annualizedReturnPct)} cls={cls(bt.annualizedReturnPct)} />
+              <Metric label="Max drawdown" value={fmtSigned(bt.maxDrawdownPct)} cls="text-[color:var(--bear)]" />
+              <Metric label="Win rate" value={bt.winRatePct == null ? "—" : `${bt.winRatePct.toFixed(0)}%`} />
+              <Metric label="Avg trade" value={fmtSigned(bt.avgTradeReturnPct)} cls={cls(bt.avgTradeReturnPct)} />
+              <Metric label="Time in market" value={bt.exposurePct == null ? "—" : `${bt.exposurePct.toFixed(0)}%`} />
+            </div>
+            <div className="border-t border-border p-4 text-xs">
+              <div className="font-mono uppercase tracking-wider text-muted-foreground mb-2">Buy &amp; hold reference</div>
+              <div className="grid grid-cols-3 gap-3 font-mono">
+                <div><span className="text-muted-foreground">Total: </span><span className={cls(bt.buyHoldReturnPct)}>{fmtSigned(bt.buyHoldReturnPct)}</span></div>
+                <div><span className="text-muted-foreground">Annualized: </span><span className={cls(bt.buyHoldAnnualizedPct)}>{fmtSigned(bt.buyHoldAnnualizedPct)}</span></div>
+                <div><span className="text-muted-foreground">Max DD: </span><span className="text-[color:var(--bear)]">{fmtSigned(bt.buyHoldMaxDrawdownPct)}</span></div>
+              </div>
+            </div>
+            {bt.trades.length > 0 && (
+              <div className="border-t border-border overflow-x-auto">
+                <table className="term">
+                  <thead>
+                    <tr><th>#</th><th>Entry idx</th><th>Entry</th><th>Exit idx</th><th>Exit</th><th>Bars</th><th>Return</th></tr>
+                  </thead>
+                  <tbody>
+                    {bt.trades.map((tr, i) => (
+                      <tr key={i}>
+                        <td>{i + 1}</td>
+                        <td className="num text-muted-foreground">{tr.entryIdx}</td>
+                        <td className="num">{tr.entryPrice.toFixed(2)}</td>
+                        <td className="num text-muted-foreground">{tr.exitIdx}</td>
+                        <td className="num">{tr.exitPrice.toFixed(2)}</td>
+                        <td className="num">{tr.bars}</td>
+                        <td className={`num ${cls(tr.returnPct)}`}>{fmtSigned(tr.returnPct)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="px-4 py-2 text-[10px] text-muted-foreground border-t border-border">
+              Long-only. Enter on 50D MA crossing above 200D MA; exit on cross-down. No fees, no slippage, no compounding across cash periods. Indicative only.
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+function Metric({ label, value, cls = "" }: { label: string; value: string; cls?: string }) {
+  return (
+    <div className="bg-card p-4 text-center">
+      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className={`font-mono text-base mt-1 ${cls}`}>{value}</div>
     </div>
   );
 }
