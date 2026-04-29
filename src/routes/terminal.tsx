@@ -231,6 +231,8 @@ function DisambiguationPanel({ matches, onPick, query }: { matches: Match[]; onP
 
 function SnapshotBar({ r }: { r: Success }) {
   const t = r.target;
+  const wl = useWatchlist();
+  const inList = wl.has(t.symbol);
   return (
     <div className="panel mb-4">
       <div className="p-4 flex flex-wrap items-baseline gap-x-6 gap-y-2 border-b border-border">
@@ -242,6 +244,12 @@ function SnapshotBar({ r }: { r: Success }) {
             <span className="text-[10px] font-mono uppercase border border-border rounded px-1.5 py-0.5 text-muted-foreground">
               {t.fullExchange ?? t.exchange ?? "—"} · {t.country ?? t.region} · {t.currency}
             </span>
+            <button
+              onClick={() => (inList ? wl.remove(t.symbol) : wl.add([t.symbol]))}
+              className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border transition-colors ${inList ? "border-primary text-primary bg-primary/10" : "border-border text-muted-foreground hover:text-foreground"}`}
+            >
+              {inList ? "★ In Watchlist" : "☆ Add to Watchlist"}
+            </button>
           </div>
         </div>
         <div className="ml-auto flex items-baseline gap-6 font-mono">
