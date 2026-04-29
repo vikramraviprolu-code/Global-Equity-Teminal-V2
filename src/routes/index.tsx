@@ -12,6 +12,7 @@ import { SiteNav } from "@/components/site-nav";
 import { SectorHeatmap } from "@/components/sector-heatmap";
 import { LandingHero } from "@/components/landing-hero";
 import { exportRowsCsv, exportNodeAsPng } from "@/lib/export";
+import { Sparkline as SparkLineShared } from "@/components/sparkline";
 import { onAction } from "@/lib/action-bus";
 import { useRef } from "react";
 
