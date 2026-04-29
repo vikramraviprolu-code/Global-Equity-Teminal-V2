@@ -19,8 +19,13 @@ type Success = Extract<AnalysisResult, { target: any }>;
 type SearchResult = Awaited<ReturnType<typeof searchTickers>>;
 type Match = SearchResult["matches"][number];
 
-export function TerminalPage() {
-  const { t: initialTicker } = routeApi.useSearch();
+export function TerminalPage({ initialTicker: initialTickerProp }: { initialTicker?: string } = {}) {
+  // When mounted from /terminal/$symbol, the prop wins. When mounted from /terminal,
+  // fall back to the ?t= search param. Wrap useSearch in a try so the route api
+  // doesn't throw when this component is rendered outside the /terminal route.
+  let searchTicker: string | undefined;
+  try { searchTicker = (routeApi.useSearch() as { t?: string }).t; } catch { searchTicker = undefined; }
+  const initialTicker = initialTickerProp ?? searchTicker;
   const [query, setQuery] = useState(initialTicker ?? "");
   const [tab, setTab] = useState<"overview" | "chart" | "scores" | "value" | "momentum" | "peers" | "cross" | "scenario" | "final">("overview");
 

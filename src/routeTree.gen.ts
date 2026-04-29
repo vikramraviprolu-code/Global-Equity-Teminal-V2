@@ -17,6 +17,7 @@ import { Route as EventsRouteImport } from './routes/events'
 import { Route as DataQualityRouteImport } from './routes/data-quality'
 import { Route as CompareRouteImport } from './routes/compare'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TerminalSymbolRouteImport } from './routes/terminal.$symbol'
 
 const WatchlistRoute = WatchlistRouteImport.update({
   id: '/watchlist',
@@ -58,6 +59,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TerminalSymbolRoute = TerminalSymbolRouteImport.update({
+  id: '/$symbol',
+  path: '/$symbol',
+  getParentRoute: () => TerminalRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -66,8 +72,9 @@ export interface FileRoutesByFullPath {
   '/events': typeof EventsRoute
   '/settings': typeof SettingsRoute
   '/sources': typeof SourcesRoute
-  '/terminal': typeof TerminalRoute
+  '/terminal': typeof TerminalRouteWithChildren
   '/watchlist': typeof WatchlistRoute
+  '/terminal/$symbol': typeof TerminalSymbolRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -76,8 +83,9 @@ export interface FileRoutesByTo {
   '/events': typeof EventsRoute
   '/settings': typeof SettingsRoute
   '/sources': typeof SourcesRoute
-  '/terminal': typeof TerminalRoute
+  '/terminal': typeof TerminalRouteWithChildren
   '/watchlist': typeof WatchlistRoute
+  '/terminal/$symbol': typeof TerminalSymbolRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -87,8 +95,9 @@ export interface FileRoutesById {
   '/events': typeof EventsRoute
   '/settings': typeof SettingsRoute
   '/sources': typeof SourcesRoute
-  '/terminal': typeof TerminalRoute
+  '/terminal': typeof TerminalRouteWithChildren
   '/watchlist': typeof WatchlistRoute
+  '/terminal/$symbol': typeof TerminalSymbolRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/sources'
     | '/terminal'
     | '/watchlist'
+    | '/terminal/$symbol'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/sources'
     | '/terminal'
     | '/watchlist'
+    | '/terminal/$symbol'
   id:
     | '__root__'
     | '/'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/sources'
     | '/terminal'
     | '/watchlist'
+    | '/terminal/$symbol'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -130,7 +142,7 @@ export interface RootRouteChildren {
   EventsRoute: typeof EventsRoute
   SettingsRoute: typeof SettingsRoute
   SourcesRoute: typeof SourcesRoute
-  TerminalRoute: typeof TerminalRoute
+  TerminalRoute: typeof TerminalRouteWithChildren
   WatchlistRoute: typeof WatchlistRoute
 }
 
@@ -192,8 +204,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/terminal/$symbol': {
+      id: '/terminal/$symbol'
+      path: '/$symbol'
+      fullPath: '/terminal/$symbol'
+      preLoaderRoute: typeof TerminalSymbolRouteImport
+      parentRoute: typeof TerminalRoute
+    }
   }
 }
+
+interface TerminalRouteChildren {
+  TerminalSymbolRoute: typeof TerminalSymbolRoute
+}
+
+const TerminalRouteChildren: TerminalRouteChildren = {
+  TerminalSymbolRoute: TerminalSymbolRoute,
+}
+
+const TerminalRouteWithChildren = TerminalRoute._addFileChildren(
+  TerminalRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -202,7 +233,7 @@ const rootRouteChildren: RootRouteChildren = {
   EventsRoute: EventsRoute,
   SettingsRoute: SettingsRoute,
   SourcesRoute: SourcesRoute,
-  TerminalRoute: TerminalRoute,
+  TerminalRoute: TerminalRouteWithChildren,
   WatchlistRoute: WatchlistRoute,
 }
 export const routeTree = rootRouteImport
