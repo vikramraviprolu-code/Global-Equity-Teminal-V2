@@ -295,9 +295,22 @@ function Tabs({ tab, setTab }: { tab: string; setTab: (t: any) => void }) {
     ["scores", "Scores"],
     ["value", "Value Screen"],
     ["momentum", "Momentum"],
+    ["peers", "Peers"],
     ["cross", "Cross-Analysis"],
+    ["scenario", "Scenario"],
     ["final", "Final Recommendation"],
   ] as const;
+  return (
+    <div className="flex border-b border-border overflow-x-auto">
+      {tabs.map(([k, l]) => (
+        <button key={k} onClick={() => setTab(k)}
+          className={`px-4 py-2 text-xs font-mono uppercase tracking-wider whitespace-nowrap border-b-2 transition-colors ${tab === k ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+          {l}
+        </button>
+      ))}
+    </div>
+  );
+}
   return (
     <div className="flex border-b border-border overflow-x-auto">
       {tabs.map(([k, l]) => (
