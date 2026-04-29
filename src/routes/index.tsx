@@ -342,26 +342,7 @@ function ScreenerPage() {
   );
 }
 
-function Hero({ meta }: { meta?: { retrievedAt: string; total: number; mockCount: number; liveCount: number } }) {
-  return (
-    <section className="border-b border-border bg-card/30">
-      <div className="max-w-[1400px] mx-auto px-4 py-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl font-semibold tracking-tight">Global Stock Screener</h1>
-          <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
-            Discover stocks across US, India, Europe, Japan, Hong Kong, Korea, Taiwan, Singapore and Australia. Filter, score, and shortlist — then deep-dive on any name in the analysis terminal.
-          </p>
-        </div>
-        {meta && (
-          <div className="text-[11px] font-mono text-muted-foreground text-right">
-            <div>Last refresh: <span className="text-foreground">{new Date(meta.retrievedAt).toLocaleTimeString()}</span></div>
-            <div>{meta.liveCount} live · {meta.mockCount} mock fallback</div>
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
+
 
 function PresetBar({ current, onPick }: { current: PresetId; onPick: (p: PresetId) => void }) {
   return (
