@@ -290,7 +290,7 @@ function Pill({ ok, warn, label }: { ok?: boolean; warn?: boolean; label: string
 }
 
 function Tabs({ tab, setTab }: { tab: string; setTab: (t: any) => void }) {
-  const tabs = [
+  const tabs: Array<[string, string]> = [
     ["overview", "Overview"],
     ["chart", "Chart"],
     ["scores", "Scores"],
@@ -300,7 +300,7 @@ function Tabs({ tab, setTab }: { tab: string; setTab: (t: any) => void }) {
     ["cross", "Cross-Analysis"],
     ["scenario", "Scenario"],
     ["final", "Final Recommendation"],
-  ] as const;
+  ];
   return (
     <div className="flex border-b border-border overflow-x-auto">
       {tabs.map(([k, l]) => (
