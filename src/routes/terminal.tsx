@@ -280,6 +280,8 @@ function Pill({ ok, warn, label }: { ok?: boolean; warn?: boolean; label: string
 function Tabs({ tab, setTab }: { tab: string; setTab: (t: any) => void }) {
   const tabs = [
     ["overview", "Overview"],
+    ["chart", "Chart"],
+    ["scores", "Scores"],
     ["value", "Value Screen"],
     ["momentum", "Momentum"],
     ["cross", "Cross-Analysis"],
