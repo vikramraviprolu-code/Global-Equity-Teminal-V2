@@ -55,6 +55,7 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "Global Equity Terminal v2 — Stock Screener" },
       { property: "og:description", content: "A professional stock discovery and analysis platform. Screen, score, and analyse global equities with evidence-based research." },
     ],
+    links: [{ rel: "canonical", href: "https://rankaisolutions.tech/" }],
   }),
   validateSearch: zodValidator(searchSchema),
   loader: ({ context }) => {

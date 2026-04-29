@@ -6,7 +6,10 @@ export const Route = createFileRoute("/sources")({
     meta: [
       { title: "Data Sources — Global Equity Terminal v2" },
       { name: "description", content: "Free and public data sources powering price, fundamentals, and corporate events in Global Equity Terminal v2." },
+      { property: "og:title", content: "Data Sources — Global Equity Terminal v2" },
+      { property: "og:description", content: "Free and public data sources powering price, fundamentals, and corporate events in Global Equity Terminal v2." },
     ],
+    links: [{ rel: "canonical", href: "https://rankaisolutions.tech/sources" }],
   }),
   component: SourcesPage,
 });

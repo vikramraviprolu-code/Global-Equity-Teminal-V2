@@ -45,7 +45,20 @@ export const Route = createFileRoute("/terminal/$symbol")({
         { name: "twitter:description", content: description },
       ],
       links: [
-        { rel: "canonical", href: `/terminal/${d.symbol}` },
+        { rel: "canonical", href: `https://rankaisolutions.tech/terminal/${d.symbol}` },
+      ],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FinancialProduct",
+            name: `${d.companyName} (${d.symbol})`,
+            url: `https://rankaisolutions.tech/terminal/${d.symbol}`,
+            category: d.sector ?? undefined,
+            description,
+          }),
+        },
       ],
     };
   },
