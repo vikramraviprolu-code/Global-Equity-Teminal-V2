@@ -577,6 +577,7 @@ function ResultsTable({ rows, columns, sortBy, sortDir, onSort, selected, toggle
   onOpen: (s: string) => void;
 }) {
   const has = (k: ColumnKey) => columns.has(k);
+  const [ccyMode] = useDisplayCurrency();
   const Th = ({ k, label, num, colKey }: { k: string; label: string; num?: boolean; colKey?: ColumnKey }) => {
     if (colKey && !has(colKey)) return null;
     return (
@@ -636,7 +637,7 @@ function ResultsTable({ rows, columns, sortBy, sortDir, onSort, selected, toggle
                   {has("name") && <td className="max-w-[160px] truncate" title={r.name}>{r.name}</td>}
                   {has("region") && <td className="text-muted-foreground">{r.region}</td>}
                   {has("sector") && <td className="text-muted-foreground max-w-[140px] truncate" title={r.sector}>{r.sector}</td>}
-                  {has("price") && <td className="num">{fmtPrice(r.price, r.currency)}</td>}
+                  {has("price") && <td className="num">{fmtPriceDisplay(r.price, r.currency, r.marketCap, r.marketCapUsd, ccyMode)}</td>}
                   {has("marketCapUsd") && <td className="num">{fmtMcapUsd(r.marketCapUsd)}</td>}
                   {has("pe") && <td className="num">{fmtNum(r.pe, 1)}</td>}
                   {has("pb") && <td className="num">{fmtNum(r.pb, 2)}</td>}
