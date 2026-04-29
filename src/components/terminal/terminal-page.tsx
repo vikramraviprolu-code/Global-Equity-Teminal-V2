@@ -13,6 +13,7 @@ import { SourcedCell } from "@/components/sourced-value";
 import { provenanceFor } from "@/lib/sourced";
 import { downloadTerminalPdf } from "@/lib/pdf-report";
 import { onAction } from "@/lib/action-bus";
+import { AiNarrative } from "@/components/ai-narrative";
 
 const routeApi = getRouteApi("/terminal");
 
@@ -373,63 +374,87 @@ function OverviewSection({ r }: { r: Success }) {
     { k: "Price vs 200D MA", v: <SourcedCell provenance={sv("ma200", t.ma200)}>{vsMA(t.price, t.ma200).label} ({fmtPrice(t.ma200, t.currency)})</SourcedCell> },
     { k: "Earnings Date", v: t.earningsDate ? new Date(t.earningsDate).toLocaleDateString() : "—" },
   ];
+  // Compact, factual snapshot to feed the AI narrative — only fields the user
+  // can already see on the page. No external data, no forward-looking metrics.
+  const facts = [
+    `Company: ${t.companyName} (${t.symbol})`,
+    `Sector / Industry: ${t.sector ?? "—"} / ${t.industry ?? "—"}`,
+    `Listing: ${t.fullExchange ?? t.exchange ?? "—"} · ${t.country ?? t.region} · ${t.currency}`,
+    `Price: ${fmtPrice(t.price, t.currency)}`,
+    `Market Cap (USD): ${fmtMcapUsd(t.marketCapUsd)}`,
+    `52W range: ${fmtPrice(t.low52, t.currency)} – ${fmtPrice(t.high52, t.currency)} (${fmtPct(t.pctFromLow)} from low)`,
+    `Trailing P/E: ${fmtNum(t.pe)}`,
+    `5D performance: ${fmtPct(t.perf5d)}`,
+    `RSI 14: ${fmtNum(t.rsi14, 1)} (${t.rsiLabel})`,
+    `ROC 14 / 21: ${fmtPct(t.roc14)} / ${fmtPct(t.roc21)}`,
+    `vs MA20 / MA50 / MA200: ${vsMA(t.price, t.ma20).label} / ${vsMA(t.price, t.ma50).label} / ${vsMA(t.price, t.ma200).label}`,
+    `Recommendation: ${t.recommendation.rec} · Outlook: ${t.outlook} · Confidence: ${t.confidence}`,
+    `Passes regional liquidity filter: ${t.passesGlobal ? "yes" : "no"} · Passes value screen: ${t.passesValue ? "yes" : "no"}`,
+    t.dataMissing.length > 0 ? `Missing data: ${t.dataMissing.join(", ")}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <div className="panel lg:col-span-2">
-        <div className="panel-header flex items-center justify-between">
-          <span>Snapshot · {t.symbol}</span>
-          <span className="text-[10px] font-normal normal-case tracking-normal text-muted-foreground flex items-center gap-2">
-            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[color:var(--bull)]" />High</span>
-            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary" />Med</span>
-            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[color:var(--bear)]" />Low</span>
-            <span className="text-muted-foreground/60">· hover for source</span>
-          </span>
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="panel lg:col-span-2">
+          <div className="panel-header flex items-center justify-between">
+            <span>Snapshot · {t.symbol}</span>
+            <span className="text-[10px] font-normal normal-case tracking-normal text-muted-foreground flex items-center gap-2">
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[color:var(--bull)]" />High</span>
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary" />Med</span>
+              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[color:var(--bear)]" />Low</span>
+              <span className="text-muted-foreground/60">· hover for source</span>
+            </span>
+          </div>
+          <table className="term">
+            <tbody>
+              {rows.map(({ k, v }) => (
+                <tr key={k}><td className="text-muted-foreground w-1/2">{k}</td><td className="num">{v}</td></tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <table className="term">
-          <tbody>
-            {rows.map(({ k, v }) => (
-              <tr key={k}><td className="text-muted-foreground w-1/2">{k}</td><td className="num">{v}</td></tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="space-y-4">
+          <div className="panel">
+            <div className="panel-header">Regional Filter · {t.region}</div>
+            <div className="p-4 text-xs space-y-1 font-mono">
+              <Indicator label="Min Price" value={`${fmtPrice(f.minPrice, t.currency)}`} />
+              <Indicator label="Min Volume" value={fmtVol(f.minVolume)} />
+              <Indicator label="Min Mcap" value={`${fmtMcapUsd(f.minMcapUsd)} equivalent`} />
+              <Indicator label="Status" value={t.passesGlobal ? "✅ Passes" : "❌ Fails"} />
+            </div>
+          </div>
+          <div className="panel">
+            <div className="panel-header">Visual Indicators</div>
+            <div className="p-4 font-mono text-xs space-y-2">
+              <Indicator label="Trend" value={`${trendArrow(t.perf5d)} ${t.perf5d != null && t.perf5d > 0 ? "Positive" : t.perf5d != null && t.perf5d < 0 ? "Negative" : "Flat"}`} />
+              <Indicator label="Value Screen" value={`${t.passesValue ? "✅" : "❌"} ${t.passesValue ? "Qualifies" : "Does not qualify"}`} />
+              <Indicator label="RSI" value={`${t.rsi14 != null && (t.rsi14 > 70 || t.rsi14 < 30) ? "⚠️" : "→"} ${t.rsiLabel}`} />
+              <Indicator label="MA 20D" value={`${t.price && t.ma20 && t.price > t.ma20 ? "↑" : "↓"} ${vsMA(t.price, t.ma20).label}`} />
+              <Indicator label="MA 50D" value={`${t.price && t.ma50 && t.price > t.ma50 ? "↑" : "↓"} ${vsMA(t.price, t.ma50).label}`} />
+              <Indicator label="MA 200D" value={`${t.price && t.ma200 && t.price > t.ma200 ? "↑" : "↓"} ${vsMA(t.price, t.ma200).label}`} />
+            </div>
+          </div>
+          <div className="panel">
+            <div className="panel-header">Peer Universe</div>
+            <div className="p-4 text-xs space-y-1">
+              <div className="text-muted-foreground">Identified <span className="text-primary font-mono">{r.peers.length}</span> peers in {t.industry || t.sector || "sector"} (region-aware).</div>
+              <div className="text-muted-foreground">Value qualifiers: <span className="text-[color:var(--bull)] font-mono">{r.valueQualifiers.length}</span></div>
+              <div className="text-muted-foreground">Momentum top: <span className="text-primary font-mono">{r.momentumTop.length}</span></div>
+              <div className="text-muted-foreground">Cross-screen overlap: <span className="text-primary font-mono">{r.overlap.length}</span></div>
+            </div>
+          </div>
+          {t.dataMissing.length > 0 && (
+            <div className="panel border-primary/30">
+              <div className="panel-header text-primary">⚠ Data Unavailable</div>
+              <div className="p-4 text-xs text-muted-foreground">Missing: {t.dataMissing.join(", ")}</div>
+            </div>
+          )}
+        </div>
       </div>
-      <div className="space-y-4">
-        <div className="panel">
-          <div className="panel-header">Regional Filter · {t.region}</div>
-          <div className="p-4 text-xs space-y-1 font-mono">
-            <Indicator label="Min Price" value={`${fmtPrice(f.minPrice, t.currency)}`} />
-            <Indicator label="Min Volume" value={fmtVol(f.minVolume)} />
-            <Indicator label="Min Mcap" value={`${fmtMcapUsd(f.minMcapUsd)} equivalent`} />
-            <Indicator label="Status" value={t.passesGlobal ? "✅ Passes" : "❌ Fails"} />
-          </div>
-        </div>
-        <div className="panel">
-          <div className="panel-header">Visual Indicators</div>
-          <div className="p-4 font-mono text-xs space-y-2">
-            <Indicator label="Trend" value={`${trendArrow(t.perf5d)} ${t.perf5d != null && t.perf5d > 0 ? "Positive" : t.perf5d != null && t.perf5d < 0 ? "Negative" : "Flat"}`} />
-            <Indicator label="Value Screen" value={`${t.passesValue ? "✅" : "❌"} ${t.passesValue ? "Qualifies" : "Does not qualify"}`} />
-            <Indicator label="RSI" value={`${t.rsi14 != null && (t.rsi14 > 70 || t.rsi14 < 30) ? "⚠️" : "→"} ${t.rsiLabel}`} />
-            <Indicator label="MA 20D" value={`${t.price && t.ma20 && t.price > t.ma20 ? "↑" : "↓"} ${vsMA(t.price, t.ma20).label}`} />
-            <Indicator label="MA 50D" value={`${t.price && t.ma50 && t.price > t.ma50 ? "↑" : "↓"} ${vsMA(t.price, t.ma50).label}`} />
-            <Indicator label="MA 200D" value={`${t.price && t.ma200 && t.price > t.ma200 ? "↑" : "↓"} ${vsMA(t.price, t.ma200).label}`} />
-          </div>
-        </div>
-        <div className="panel">
-          <div className="panel-header">Peer Universe</div>
-          <div className="p-4 text-xs space-y-1">
-            <div className="text-muted-foreground">Identified <span className="text-primary font-mono">{r.peers.length}</span> peers in {t.industry || t.sector || "sector"} (region-aware).</div>
-            <div className="text-muted-foreground">Value qualifiers: <span className="text-[color:var(--bull)] font-mono">{r.valueQualifiers.length}</span></div>
-            <div className="text-muted-foreground">Momentum top: <span className="text-primary font-mono">{r.momentumTop.length}</span></div>
-            <div className="text-muted-foreground">Cross-screen overlap: <span className="text-primary font-mono">{r.overlap.length}</span></div>
-          </div>
-        </div>
-        {t.dataMissing.length > 0 && (
-          <div className="panel border-primary/30">
-            <div className="panel-header text-primary">⚠ Data Unavailable</div>
-            <div className="p-4 text-xs text-muted-foreground">Missing: {t.dataMissing.join(", ")}</div>
-          </div>
-        )}
-      </div>
+      <AiNarrative symbol={t.symbol} facts={facts} />
     </div>
   );
 }
