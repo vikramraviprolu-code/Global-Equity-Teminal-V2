@@ -7,6 +7,7 @@ import { fmtNum, fmtPct, fmtMcap, fmtMcapUsd, fmtVol, fmtPrice, colorFor, trendA
 import { SiteNav, Disclaimer as SharedDisclaimer } from "@/components/site-nav";
 import { PriceChart } from "@/components/price-chart";
 import { useWatchlist } from "@/hooks/use-watchlist";
+import { scoreRow } from "@/lib/scores";
 
 export const Route = createFileRoute("/terminal")({
   validateSearch: (s: Record<string, unknown>) => z.object({ t: z.string().optional() }).parse(s),
@@ -666,8 +667,6 @@ function ScoresSection({ r }: { r: Success }) {
     closes: t.closes ?? [], isMock: false, source: "Finimpulse",
     retrievedAt: new Date().toISOString(),
   }), [t]);
-  // Lazy-imported scoring (keep client bundle clean)
-  const { scoreRow } = require("@/lib/scores") as typeof import("@/lib/scores");
   const s = scoreRow(scoreInput as any);
 
   const cards = [
