@@ -14,6 +14,7 @@ import { provenanceFor } from "@/lib/sourced";
 import { downloadTerminalPdf } from "@/lib/pdf-report";
 import { onAction } from "@/lib/action-bus";
 import { AiNarrative } from "@/components/ai-narrative";
+import { NewsCatalysts } from "@/components/news-catalysts";
 
 const routeApi = getRouteApi("/terminal");
 
@@ -455,6 +456,7 @@ function OverviewSection({ r }: { r: Success }) {
         </div>
       </div>
       <AiNarrative symbol={t.symbol} facts={facts} />
+      <NewsCatalysts symbol={t.symbol} name={(t as any).companyName ?? undefined} />
     </div>
   );
 }
