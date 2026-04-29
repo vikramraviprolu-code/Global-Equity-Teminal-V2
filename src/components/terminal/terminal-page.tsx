@@ -62,6 +62,12 @@ export function TerminalPage({ initialTicker: initialTickerProp }: { initialTick
   const isError = data && "error" in data;
   const result = data && !("error" in data) ? data : null;
 
+  // Press "e" to download the PDF report when a result is loaded
+  useEffect(() => {
+    if (!result) return;
+    return onAction("export", () => downloadTerminalPdf(result));
+  }, [result]);
+
   return (
     <div className="min-h-screen">
       <SiteNav />
@@ -252,6 +258,13 @@ function SnapshotBar({ r }: { r: Success }) {
               className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border transition-colors ${inList ? "border-primary text-primary bg-primary/10" : "border-border text-muted-foreground hover:text-foreground"}`}
             >
               {inList ? "★ In Watchlist" : "☆ Add to Watchlist"}
+            </button>
+            <button
+              onClick={() => downloadTerminalPdf(r)}
+              title="Download PDF report (press E)"
+              className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              ⬇ Download Report
             </button>
           </div>
         </div>
