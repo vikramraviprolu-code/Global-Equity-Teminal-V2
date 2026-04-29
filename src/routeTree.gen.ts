@@ -12,14 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as TerminalRouteImport } from './routes/terminal'
 import { Route as SourcesRouteImport } from './routes/sources'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as EventsRouteImport } from './routes/events'
 import { Route as DataQualityRouteImport } from './routes/data-quality'
 import { Route as CompareRouteImport } from './routes/compare'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TerminalSymbolRouteImport } from './routes/terminal.$symbol'
-import { Route as ApiSitemapDotxmlRouteImport } from './routes/api/sitemap[.]xml'
-import { Route as ApiRobotsDottxtRouteImport } from './routes/api/robots[.]txt'
 
 const WatchlistRoute = WatchlistRouteImport.update({
   id: '/watchlist',
@@ -36,9 +36,19 @@ const SourcesRoute = SourcesRouteImport.update({
   path: '/sources',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EventsRoute = EventsRouteImport.update({
@@ -66,28 +76,18 @@ const TerminalSymbolRoute = TerminalSymbolRouteImport.update({
   path: '/$symbol',
   getParentRoute: () => TerminalRoute,
 } as any)
-const ApiSitemapDotxmlRoute = ApiSitemapDotxmlRouteImport.update({
-  id: '/api/sitemap.xml',
-  path: '/api/sitemap.xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiRobotsDottxtRoute = ApiRobotsDottxtRouteImport.update({
-  id: '/api/robots.txt',
-  path: '/api/robots.txt',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/compare': typeof CompareRoute
   '/data-quality': typeof DataQualityRoute
   '/events': typeof EventsRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/settings': typeof SettingsRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sources': typeof SourcesRoute
   '/terminal': typeof TerminalRouteWithChildren
   '/watchlist': typeof WatchlistRoute
-  '/api/robots.txt': typeof ApiRobotsDottxtRoute
-  '/api/sitemap.xml': typeof ApiSitemapDotxmlRoute
   '/terminal/$symbol': typeof TerminalSymbolRoute
 }
 export interface FileRoutesByTo {
@@ -95,12 +95,12 @@ export interface FileRoutesByTo {
   '/compare': typeof CompareRoute
   '/data-quality': typeof DataQualityRoute
   '/events': typeof EventsRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/settings': typeof SettingsRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sources': typeof SourcesRoute
   '/terminal': typeof TerminalRouteWithChildren
   '/watchlist': typeof WatchlistRoute
-  '/api/robots.txt': typeof ApiRobotsDottxtRoute
-  '/api/sitemap.xml': typeof ApiSitemapDotxmlRoute
   '/terminal/$symbol': typeof TerminalSymbolRoute
 }
 export interface FileRoutesById {
@@ -109,12 +109,12 @@ export interface FileRoutesById {
   '/compare': typeof CompareRoute
   '/data-quality': typeof DataQualityRoute
   '/events': typeof EventsRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/settings': typeof SettingsRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sources': typeof SourcesRoute
   '/terminal': typeof TerminalRouteWithChildren
   '/watchlist': typeof WatchlistRoute
-  '/api/robots.txt': typeof ApiRobotsDottxtRoute
-  '/api/sitemap.xml': typeof ApiSitemapDotxmlRoute
   '/terminal/$symbol': typeof TerminalSymbolRoute
 }
 export interface FileRouteTypes {
@@ -124,12 +124,12 @@ export interface FileRouteTypes {
     | '/compare'
     | '/data-quality'
     | '/events'
+    | '/robots.txt'
     | '/settings'
+    | '/sitemap.xml'
     | '/sources'
     | '/terminal'
     | '/watchlist'
-    | '/api/robots.txt'
-    | '/api/sitemap.xml'
     | '/terminal/$symbol'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -137,12 +137,12 @@ export interface FileRouteTypes {
     | '/compare'
     | '/data-quality'
     | '/events'
+    | '/robots.txt'
     | '/settings'
+    | '/sitemap.xml'
     | '/sources'
     | '/terminal'
     | '/watchlist'
-    | '/api/robots.txt'
-    | '/api/sitemap.xml'
     | '/terminal/$symbol'
   id:
     | '__root__'
@@ -150,12 +150,12 @@ export interface FileRouteTypes {
     | '/compare'
     | '/data-quality'
     | '/events'
+    | '/robots.txt'
     | '/settings'
+    | '/sitemap.xml'
     | '/sources'
     | '/terminal'
     | '/watchlist'
-    | '/api/robots.txt'
-    | '/api/sitemap.xml'
     | '/terminal/$symbol'
   fileRoutesById: FileRoutesById
 }
@@ -164,12 +164,12 @@ export interface RootRouteChildren {
   CompareRoute: typeof CompareRoute
   DataQualityRoute: typeof DataQualityRoute
   EventsRoute: typeof EventsRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
   SettingsRoute: typeof SettingsRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SourcesRoute: typeof SourcesRoute
   TerminalRoute: typeof TerminalRouteWithChildren
   WatchlistRoute: typeof WatchlistRoute
-  ApiRobotsDottxtRoute: typeof ApiRobotsDottxtRoute
-  ApiSitemapDotxmlRoute: typeof ApiSitemapDotxmlRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -195,11 +195,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SourcesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/events': {
@@ -237,20 +251,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TerminalSymbolRouteImport
       parentRoute: typeof TerminalRoute
     }
-    '/api/sitemap.xml': {
-      id: '/api/sitemap.xml'
-      path: '/api/sitemap.xml'
-      fullPath: '/api/sitemap.xml'
-      preLoaderRoute: typeof ApiSitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/robots.txt': {
-      id: '/api/robots.txt'
-      path: '/api/robots.txt'
-      fullPath: '/api/robots.txt'
-      preLoaderRoute: typeof ApiRobotsDottxtRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -271,12 +271,12 @@ const rootRouteChildren: RootRouteChildren = {
   CompareRoute: CompareRoute,
   DataQualityRoute: DataQualityRoute,
   EventsRoute: EventsRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
   SettingsRoute: SettingsRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   SourcesRoute: SourcesRoute,
   TerminalRoute: TerminalRouteWithChildren,
   WatchlistRoute: WatchlistRoute,
-  ApiRobotsDottxtRoute: ApiRobotsDottxtRoute,
-  ApiSitemapDotxmlRoute: ApiSitemapDotxmlRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
