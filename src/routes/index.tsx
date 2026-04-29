@@ -618,6 +618,7 @@ function ResultsTable({ rows, columns, sortBy, sortDir, onSort, selected, toggle
             <Th k="pb" label="P/B" num colKey="pb" />
             <Th k="dividendYield" label="Div %" num colKey="dividendYield" />
             <Th k="pctFromLow" label="From 52W Low" num colKey="pctFromLow" />
+            <th className="text-left">Trend</th>
             <Th k="perf5d" label="5D %" num colKey="perf5d" />
             <Th k="rsi14" label="RSI" num colKey="rsi14" />
             <Th k="value" label="Value" num colKey="value" />
@@ -657,6 +658,7 @@ function ResultsTable({ rows, columns, sortBy, sortDir, onSort, selected, toggle
                       {r.pctFromLow == null ? "—" : `+${r.pctFromLow.toFixed(1)}%`}
                     </td>
                   )}
+                  <td className="px-1"><SparkLineShared closes={r.closes} width={72} height={20} /></td>
                   {has("perf5d") && <td className={`num ${colorFor(r.perf5d)}`}>{fmtPct(r.perf5d)}</td>}
                   {has("rsi14") && (
                     <td className={`num ${r.rsi14 == null ? "" : r.rsi14 > 70 ? "text-[color:var(--bear)]" : r.rsi14 < 30 ? "text-[color:var(--bull)]" : ""}`}>
