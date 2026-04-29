@@ -92,6 +92,8 @@ export type ScreenerRow = {
   marketCapUsd: number | null;
   avgVolume: number | null;
   pe: number | null;
+  pb: number | null;
+  dividendYield: number | null; // percent (e.g. 2.5 = 2.5%)
   high52: number | null;
   low52: number | null;
   pctFromLow: number | null;
