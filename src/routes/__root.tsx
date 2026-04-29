@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import appCss from "../styles.css?url";
 import { organizationJsonLd, websiteJsonLd } from "@/lib/seo";
 import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
+import { CommandBar } from "@/components/command-bar";
 
 function NotFoundComponent() {
   return (
@@ -71,6 +72,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <Outlet />
       <KeyboardShortcuts />
+      <CommandBar />
     </QueryClientProvider>
   );
 }

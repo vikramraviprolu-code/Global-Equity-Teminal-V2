@@ -18,6 +18,7 @@ const SHORTCUTS: { group: string; items: Shortcut[] }[] = [
   {
     group: "Actions",
     items: [
+      { keys: "⌘ K", label: "Open AI co-pilot (or Ctrl+K)" },
       { keys: "/", label: "Focus search / ticker input" },
       { keys: "e", label: "Export / download current view" },
       { keys: "?", label: "Show this shortcuts overlay" },

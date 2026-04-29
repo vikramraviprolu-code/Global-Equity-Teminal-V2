@@ -12,6 +12,7 @@ import { SiteNav } from "@/components/site-nav";
 import { SectorHeatmap } from "@/components/sector-heatmap";
 import { LandingHero } from "@/components/landing-hero";
 import { exportRowsCsv, exportNodeAsPng } from "@/lib/export";
+import { Sparkline as SparkLineShared } from "@/components/sparkline";
 import { onAction } from "@/lib/action-bus";
 import { useRef } from "react";
 
@@ -186,7 +187,7 @@ function ScreenerPage() {
   const { items: watchlist, add: addWatch, remove: removeWatch } = useWatchlist();
 
   const setFilters = (next: Partial<Filters>) =>
-    navigate({ to: "/", search: (prev: Filters) => ({ ...prev, ...next, page: next.page ?? 1 }) });
+    navigate({ to: "/", search: ((prev: Filters) => ({ ...prev, ...next, page: next.page ?? 1 })) as any });
   const replaceFilters = (next: Filters) =>
     navigate({ to: "/", search: { ...next, page: 1 } });
 
@@ -599,7 +600,7 @@ function ResultsTable({ rows, columns, sortBy, sortDir, onSort, selected, toggle
     );
   };
   // count visible columns for expanded-row colspan
-  const visibleCount = 3 /* checkbox + expand + watch */ + ALL_COLUMNS.filter((c) => has(c.key)).length;
+  const visibleCount = 3 /* checkbox + expand + watch */ + 1 /* trend sparkline */ + ALL_COLUMNS.filter((c) => has(c.key)).length;
   return (
     <div className="panel overflow-x-auto">
       <table className="term">
@@ -617,6 +618,7 @@ function ResultsTable({ rows, columns, sortBy, sortDir, onSort, selected, toggle
             <Th k="pb" label="P/B" num colKey="pb" />
             <Th k="dividendYield" label="Div %" num colKey="dividendYield" />
             <Th k="pctFromLow" label="From 52W Low" num colKey="pctFromLow" />
+            <th className="text-left">Trend</th>
             <Th k="perf5d" label="5D %" num colKey="perf5d" />
             <Th k="rsi14" label="RSI" num colKey="rsi14" />
             <Th k="value" label="Value" num colKey="value" />
@@ -656,6 +658,7 @@ function ResultsTable({ rows, columns, sortBy, sortDir, onSort, selected, toggle
                       {r.pctFromLow == null ? "—" : `+${r.pctFromLow.toFixed(1)}%`}
                     </td>
                   )}
+                  <td className="px-1"><SparkLineShared closes={r.closes} width={72} height={20} /></td>
                   {has("perf5d") && <td className={`num ${colorFor(r.perf5d)}`}>{fmtPct(r.perf5d)}</td>}
                   {has("rsi14") && (
                     <td className={`num ${r.rsi14 == null ? "" : r.rsi14 > 70 ? "text-[color:var(--bear)]" : r.rsi14 < 30 ? "text-[color:var(--bull)]" : ""}`}>

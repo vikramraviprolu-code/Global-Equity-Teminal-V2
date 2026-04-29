@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { z } from "zod";
 import { fetchUniverse } from "@/server/screen.functions";
 import { scoreAll } from "@/lib/scores";
@@ -8,6 +8,7 @@ import { fmtNum, fmtPct, fmtMcapUsd, fmtPriceDisplay, fmtVol, colorFor } from "@
 import { useDisplayCurrency } from "@/hooks/use-display-currency";
 import { SiteNav, Disclaimer } from "@/components/site-nav";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend, Tooltip as RTooltip } from "recharts";
+import { Sparkline } from "@/components/sparkline";
 
 export const Route = createFileRoute("/compare")({
   validateSearch: (s: Record<string, unknown>) => z.object({ s: z.string().optional() }).parse(s),
@@ -31,6 +32,7 @@ function ComparePage() {
 
   const [picked, setPicked] = useState<string[]>(initialSyms);
   const [add, setAdd] = useState("");
+  const [diffOnly, setDiffOnly] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["universe"],
@@ -138,6 +140,20 @@ function ComparePage() {
 
         {rows.length > 0 && (
           <div className="panel overflow-x-auto mt-4">
+            <div className="px-3 py-2 border-b border-border flex flex-wrap items-center gap-3 text-[11px] font-mono">
+              <label className="flex items-center gap-2 cursor-pointer text-muted-foreground hover:text-foreground select-none">
+                <input
+                  type="checkbox"
+                  checked={diffOnly}
+                  onChange={(e) => setDiffOnly(e.target.checked)}
+                  className="accent-[color:var(--primary)]"
+                />
+                <span>Diff mode</span>
+              </label>
+              <span className="text-[10px] text-muted-foreground/70">
+                Hide rows where all selected stocks share the same value — focus on what actually differs.
+              </span>
+            </div>
             <table className="term">
               <thead>
                 <tr>
@@ -155,42 +171,57 @@ function ComparePage() {
               </thead>
               <tbody>
                 <Section label="Identity" />
-                <Row label="Region">{rows.map((r) => <Cell key={r.symbol}>{r.region}</Cell>)}</Row>
-                <Row label="Sector">{rows.map((r) => <Cell key={r.symbol} muted>{r.sector}</Cell>)}</Row>
-                <Row label="Industry">{rows.map((r) => <Cell key={r.symbol} muted>{r.industry}</Cell>)}</Row>
-                <Row label="Currency">{rows.map((r) => <Cell key={r.symbol}>{r.currency}</Cell>)}</Row>
+                <DRow label="Region" values={rows.map((r) => r.region)} diffOnly={diffOnly} render={(v) => <Cell>{v}</Cell>} />
+                <DRow label="Sector" values={rows.map((r) => r.sector)} diffOnly={diffOnly} render={(v) => <Cell muted>{v}</Cell>} />
+                <DRow label="Industry" values={rows.map((r) => r.industry)} diffOnly={diffOnly} render={(v) => <Cell muted>{v}</Cell>} />
+                <DRow label="Currency" values={rows.map((r) => r.currency)} diffOnly={diffOnly} render={(v) => <Cell>{v}</Cell>} />
+
+                <Section label="Trend (last ~30 closes)" />
+                <Row label="Sparkline">{rows.map((r) => <td key={r.symbol} className="px-2 py-1 text-right"><Sparkline closes={r.closes} width={120} height={28} /></td>)}</Row>
 
                 <Section label="Valuation & Size" />
-                <Row label="Price">{rows.map((r) => <Cell key={r.symbol} num>{fmtPriceDisplay(r.price, r.currency, r.marketCap, r.marketCapUsd, ccyMode)}</Cell>)}</Row>
-                <Row label="Mcap (USD)">{rows.map((r) => <Cell key={r.symbol} num cls={hl("marketCapUsd", r.symbol)}>{fmtMcapUsd(r.marketCapUsd)}</Cell>)}</Row>
-                <Row label="P/E (lower better)">{rows.map((r) => <Cell key={r.symbol} num cls={hl("pe", r.symbol)}>{fmtNum(r.pe, 1)}</Cell>)}</Row>
-                <Row label="% from 52W low">{rows.map((r) => <Cell key={r.symbol} num cls={hl("pctFromLow", r.symbol)}>{fmtPct(r.pctFromLow)}</Cell>)}</Row>
-                <Row label="Avg Daily Volume">{rows.map((r) => <Cell key={r.symbol} num>{fmtVol(r.avgVolume)}</Cell>)}</Row>
+                <DRow label="Price" values={rows.map((r) => fmtPriceDisplay(r.price, r.currency, r.marketCap, r.marketCapUsd, ccyMode))} diffOnly={diffOnly} render={(v) => <Cell num>{v}</Cell>} />
+                <DRow label="Mcap (USD)" values={rows.map((r) => fmtMcapUsd(r.marketCapUsd))} diffOnly={diffOnly} render={(v, i) => <Cell num cls={hl("marketCapUsd", rows[i].symbol)}>{v}</Cell>} />
+                <DRow label="P/E (lower better)" values={rows.map((r) => fmtNum(r.pe, 1))} diffOnly={diffOnly} render={(v, i) => <Cell num cls={hl("pe", rows[i].symbol)}>{v}</Cell>} />
+                <DRow label="% from 52W low" values={rows.map((r) => fmtPct(r.pctFromLow))} diffOnly={diffOnly} render={(v, i) => <Cell num cls={hl("pctFromLow", rows[i].symbol)}>{v}</Cell>} />
+                <DRow label="Avg Daily Volume" values={rows.map((r) => fmtVol(r.avgVolume))} diffOnly={diffOnly} render={(v) => <Cell num>{v}</Cell>} />
 
                 <Section label="Momentum" />
-                <Row label="5D %">{rows.map((r) => <Cell key={r.symbol} num cls={`${colorFor(r.perf5d)} ${hl("perf5d", r.symbol)}`}>{fmtPct(r.perf5d)}</Cell>)}</Row>
-                <Row label="ROC 14">{rows.map((r) => <Cell key={r.symbol} num cls={colorFor(r.roc14)}>{fmtPct(r.roc14)}</Cell>)}</Row>
-                <Row label="ROC 21">{rows.map((r) => <Cell key={r.symbol} num cls={colorFor(r.roc21)}>{fmtPct(r.roc21)}</Cell>)}</Row>
-                <Row label="RSI 14">{rows.map((r) => <Cell key={r.symbol} num>{fmtNum(r.rsi14, 0)}</Cell>)}</Row>
-                <Row label="vs 200D MA">{rows.map((r) => (
-                  <Cell key={r.symbol} num cls={r.price && r.ma200 ? (r.price > r.ma200 ? "text-[color:var(--bull)]" : "text-[color:var(--bear)]") : ""}>
-                    {r.price && r.ma200 ? (r.price > r.ma200 ? "Above" : "Below") : "—"}
-                  </Cell>
-                ))}</Row>
+                <DRow label="5D %" values={rows.map((r) => fmtPct(r.perf5d))} diffOnly={diffOnly} render={(v, i) => <Cell num cls={`${colorFor(rows[i].perf5d)} ${hl("perf5d", rows[i].symbol)}`}>{v}</Cell>} />
+                <DRow label="ROC 14" values={rows.map((r) => fmtPct(r.roc14))} diffOnly={diffOnly} render={(v, i) => <Cell num cls={colorFor(rows[i].roc14)}>{v}</Cell>} />
+                <DRow label="ROC 21" values={rows.map((r) => fmtPct(r.roc21))} diffOnly={diffOnly} render={(v, i) => <Cell num cls={colorFor(rows[i].roc21)}>{v}</Cell>} />
+                <DRow label="RSI 14" values={rows.map((r) => fmtNum(r.rsi14, 0))} diffOnly={diffOnly} render={(v) => <Cell num>{v}</Cell>} />
+                <DRow
+                  label="vs 200D MA"
+                  values={rows.map((r) => (r.price && r.ma200 ? (r.price > r.ma200 ? "Above" : "Below") : "—"))}
+                  diffOnly={diffOnly}
+                  render={(v, i) => {
+                    const r = rows[i];
+                    return <Cell num cls={r.price && r.ma200 ? (r.price > r.ma200 ? "text-[color:var(--bull)]" : "text-[color:var(--bear)]") : ""}>{v}</Cell>;
+                  }}
+                />
 
                 <Section label="Composite Scores" />
-                <Row label="Value">{rows.map((r) => <Cell key={r.symbol} num cls={hl("value", r.symbol)}>{r.scores.value}</Cell>)}</Row>
-                <Row label="Momentum">{rows.map((r) => <Cell key={r.symbol} num cls={hl("momentum", r.symbol)}>{r.scores.momentum}</Cell>)}</Row>
-                <Row label="Quality">{rows.map((r) => <Cell key={r.symbol} num cls={hl("quality", r.symbol)}>{r.scores.quality}</Cell>)}</Row>
-                <Row label="Risk (lower better)">{rows.map((r) => <Cell key={r.symbol} num cls={hl("risk", r.symbol)}>{r.scores.risk}</Cell>)}</Row>
-                <Row label="Data Confidence">{rows.map((r) => (
-                  <Cell key={r.symbol} num cls={hl("confidence", r.symbol)}>
-                    {r.scores.confidence}{r.isMock && <span className="text-[9px] text-primary ml-1">mock</span>}
-                  </Cell>
-                ))}</Row>
+                <DRow label="Value" values={rows.map((r) => String(r.scores.value))} diffOnly={diffOnly} render={(v, i) => <Cell num cls={hl("value", rows[i].symbol)}>{v}</Cell>} />
+                <DRow label="Momentum" values={rows.map((r) => String(r.scores.momentum))} diffOnly={diffOnly} render={(v, i) => <Cell num cls={hl("momentum", rows[i].symbol)}>{v}</Cell>} />
+                <DRow label="Quality" values={rows.map((r) => String(r.scores.quality))} diffOnly={diffOnly} render={(v, i) => <Cell num cls={hl("quality", rows[i].symbol)}>{v}</Cell>} />
+                <DRow label="Risk (lower better)" values={rows.map((r) => String(r.scores.risk))} diffOnly={diffOnly} render={(v, i) => <Cell num cls={hl("risk", rows[i].symbol)}>{v}</Cell>} />
+                <DRow
+                  label="Data Confidence"
+                  values={rows.map((r) => `${r.scores.confidence}${r.isMock ? " mock" : ""}`)}
+                  diffOnly={diffOnly}
+                  render={(_v, i) => {
+                    const r = rows[i];
+                    return (
+                      <Cell num cls={hl("confidence", r.symbol)}>
+                        {r.scores.confidence}{r.isMock && <span className="text-[9px] text-primary ml-1">mock</span>}
+                      </Cell>
+                    );
+                  }}
+                />
 
                 <Section label="Source" />
-                <Row label="Data Source">{rows.map((r) => <Cell key={r.symbol} muted>{r.source}</Cell>)}</Row>
+                <DRow label="Data Source" values={rows.map((r) => r.source)} diffOnly={diffOnly} render={(v) => <Cell muted>{v}</Cell>} />
                 <Row label="Retrieved">{rows.map((r) => <Cell key={r.symbol} muted>{new Date(r.retrievedAt).toLocaleTimeString()}</Cell>)}</Row>
               </tbody>
             </table>
@@ -215,6 +246,34 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
     <tr>
       <td className="text-muted-foreground">{label}</td>
       {children}
+    </tr>
+  );
+}
+
+/**
+ * Diff-aware row. When `diffOnly` is true and every value across columns is
+ * identical (string-equal after formatting), the row is hidden so the user
+ * focuses on what actually differs between the picked stocks.
+ */
+function DRow({
+  label,
+  values,
+  diffOnly,
+  render,
+}: {
+  label: string;
+  values: string[];
+  diffOnly: boolean;
+  render: (value: string, index: number) => React.ReactNode;
+}) {
+  const allSame = values.length > 1 && values.every((v) => v === values[0]);
+  if (diffOnly && allSame) return null;
+  return (
+    <tr className={diffOnly && !allSame ? "bg-primary/[0.04]" : ""}>
+      <td className="text-muted-foreground">{label}</td>
+      {values.map((v, i) => (
+        <Fragment key={i}>{render(v, i)}</Fragment>
+      ))}
     </tr>
   );
 }
