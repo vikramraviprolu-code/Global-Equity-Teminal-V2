@@ -8,6 +8,9 @@ import { scoreAll, scoreRow, type ScoredRow } from "@/lib/scores";
 import { fmtNum, fmtPct, fmtMcapUsd, fmtPrice, fmtVol, colorFor } from "@/lib/format";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { SiteNav } from "@/components/site-nav";
+import { SectorHeatmap } from "@/components/sector-heatmap";
+import { exportRowsCsv, exportNodeAsPng } from "@/lib/export";
+import { useRef } from "react";
 
 const SORTABLE_KEYS = ["symbol", "name", "sector", "price", "marketCapUsd", "pe", "pb", "dividendYield", "pctFromLow", "perf5d", "rsi14", "value", "momentum", "quality", "risk", "confidence"] as const;
 type SortKey = (typeof SORTABLE_KEYS)[number];
@@ -37,7 +40,8 @@ const searchSchema = z.object({
   sortDir: fallback(z.enum(["asc", "desc"]), "desc").default("desc"),
   page: fallback(z.number().int().min(1), 1).default(1),
   pageSize: fallback(z.number().int().min(10).max(200), 50).default(50),
-  view: fallback(z.enum(["table", "chart"]), "table").default("table"),
+  view: fallback(z.enum(["table", "chart", "heatmap"]), "table").default("table"),
+  heatMetric: fallback(z.enum(["perf5d", "roc14", "rsi14", "value", "momentum", "quality"]), "perf5d").default("perf5d"),
 });
 
 type Filters = z.infer<typeof searchSchema>;
