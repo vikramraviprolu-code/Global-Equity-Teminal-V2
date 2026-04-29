@@ -8,6 +8,7 @@ import { fmtNum, fmtPct, fmtMcapUsd, fmtPriceDisplay, fmtVol, colorFor } from "@
 import { useDisplayCurrency } from "@/hooks/use-display-currency";
 import { SiteNav, Disclaimer } from "@/components/site-nav";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend, Tooltip as RTooltip } from "recharts";
+import { Sparkline } from "@/components/sparkline";
 
 export const Route = createFileRoute("/compare")({
   validateSearch: (s: Record<string, unknown>) => z.object({ s: z.string().optional() }).parse(s),
@@ -31,6 +32,7 @@ function ComparePage() {
 
   const [picked, setPicked] = useState<string[]>(initialSyms);
   const [add, setAdd] = useState("");
+  const [diffOnly, setDiffOnly] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["universe"],
