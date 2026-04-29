@@ -357,15 +357,15 @@ function PresetBar({ current, onPick }: { current: PresetId; onPick: (p: PresetI
   );
 }
 
-function FilterBar({ filters, setFilters, sectors }: {
-  filters: Filters; setFilters: (f: Filters) => void; sectors: string[];
+function FilterBar({ filters, setFilters, sectors, onReset }: {
+  filters: Filters; setFilters: (next: Partial<Filters>) => void; sectors: string[]; onReset: () => void;
 }) {
-  const set = <K extends keyof Filters>(k: K, v: Filters[K]) => setFilters({ ...filters, [k]: v });
+  const set = <K extends keyof Filters>(k: K, v: Filters[K]) => setFilters({ [k]: v } as Partial<Filters>);
   return (
     <div className="border-b border-border bg-card/30">
       <div className="max-w-[1400px] mx-auto px-4 py-3 flex flex-wrap items-end gap-3">
         <Field label="Search">
-          <input value={filters.search} onChange={(e) => set("search", e.target.value)} placeholder="Ticker or company"
+          <input value={filters.q} onChange={(e) => set("q", e.target.value)} placeholder="Ticker or company"
             className="bg-input border border-border rounded px-2 py-1 text-xs font-mono w-44 focus:border-primary outline-none" />
         </Field>
         <Field label="Region">
@@ -396,6 +396,14 @@ function FilterBar({ filters, setFilters, sectors }: {
           <input type="number" value={filters.peMax ?? ""} onChange={(e) => set("peMax", e.target.value === "" ? null : Number(e.target.value))} placeholder="—"
             className="bg-input border border-border rounded px-2 py-1 text-xs font-mono w-20 focus:border-primary outline-none" />
         </Field>
+        <Field label="P/B max">
+          <input type="number" step="0.1" value={filters.pbMax ?? ""} onChange={(e) => set("pbMax", e.target.value === "" ? null : Number(e.target.value))} placeholder="—"
+            className="bg-input border border-border rounded px-2 py-1 text-xs font-mono w-20 focus:border-primary outline-none" />
+        </Field>
+        <Field label="Div Yield ≥ %">
+          <input type="number" step="0.1" value={filters.dyMin ?? ""} onChange={(e) => set("dyMin", e.target.value === "" ? null : Number(e.target.value))} placeholder="—"
+            className="bg-input border border-border rounded px-2 py-1 text-xs font-mono w-20 focus:border-primary outline-none" />
+        </Field>
         <Field label={`RSI ${filters.rsiMin}-${filters.rsiMax}`}>
           <div className="flex items-center gap-1">
             <input type="number" min={0} max={100} value={filters.rsiMin} onChange={(e) => set("rsiMin", Math.max(0, Math.min(100, Number(e.target.value))))}
@@ -404,6 +412,20 @@ function FilterBar({ filters, setFilters, sectors }: {
             <input type="number" min={0} max={100} value={filters.rsiMax} onChange={(e) => set("rsiMax", Math.max(0, Math.min(100, Number(e.target.value))))}
               className="bg-input border border-border rounded px-2 py-1 text-xs font-mono w-14 focus:border-primary outline-none" />
           </div>
+        </Field>
+        <Field label="ROC min %">
+          <input type="number" value={filters.rocMin ?? ""} onChange={(e) => set("rocMin", e.target.value === "" ? null : Number(e.target.value))} placeholder="—"
+            className="bg-input border border-border rounded px-2 py-1 text-xs font-mono w-20 focus:border-primary outline-none" />
+        </Field>
+        <Field label="MA cross">
+          <select value={filters.maCross} onChange={(e) => set("maCross", e.target.value as MaCross)}
+            className="bg-input border border-border rounded px-2 py-1 text-xs font-mono w-32 focus:border-primary outline-none">
+            <option value="any">Any</option>
+            <option value="golden">Golden (50&gt;200)</option>
+            <option value="death">Death (50&lt;200)</option>
+            <option value="above50">Price &gt; 50D</option>
+            <option value="above200">Price &gt; 200D</option>
+          </select>
         </Field>
         <Field label="≤ % from 52W low">
           <input type="number" value={filters.near52wLowPct ?? ""} onChange={(e) => set("near52wLowPct", e.target.value === "" ? null : Number(e.target.value))} placeholder="—"
@@ -421,10 +443,62 @@ function FilterBar({ filters, setFilters, sectors }: {
           <input type="checkbox" checked={filters.excludeMock} onChange={(e) => set("excludeMock", e.target.checked)} />
           Exclude mock
         </label>
-        <button onClick={() => setFilters(DEFAULT_FILTERS)}
+        <button onClick={onReset}
           className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground border border-border px-3 py-1.5 rounded">
           Reset
         </button>
+      </div>
+    </div>
+  );
+}
+
+function ColumnMenu({ open, setOpen, columns, toggleCol }: {
+  open: boolean; setOpen: (b: boolean) => void; columns: Set<ColumnKey>; toggleCol: (k: ColumnKey) => void;
+}) {
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen(!open)}
+        className="font-mono text-[10px] uppercase tracking-wider border border-border px-3 py-1.5 rounded hover:text-foreground text-muted-foreground">
+        Columns ({columns.size})
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 mt-1 z-20 panel p-2 w-56 max-h-80 overflow-y-auto">
+            {ALL_COLUMNS.map((c) => (
+              <label key={c.key} className="flex items-center gap-2 px-2 py-1 text-xs hover:bg-primary/5 cursor-pointer rounded">
+                <input type="checkbox" checked={columns.has(c.key)} onChange={() => toggleCol(c.key)} />
+                <span>{c.label}</span>
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function Pager({ page, totalPages, pageSize, total, onPage, onPageSize }: {
+  page: number; totalPages: number; pageSize: number; total: number;
+  onPage: (p: number) => void; onPageSize: (s: number) => void;
+}) {
+  if (total === 0) return null;
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 px-1 text-xs font-mono text-muted-foreground">
+      <div>Showing <span className="text-foreground">{(page - 1) * pageSize + 1}</span>–<span className="text-foreground">{Math.min(page * pageSize, total)}</span> of <span className="text-foreground">{total}</span></div>
+      <div className="flex items-center gap-2">
+        <label className="flex items-center gap-1">
+          <span>Per page</span>
+          <select value={pageSize} onChange={(e) => onPageSize(Number(e.target.value))}
+            className="bg-input border border-border rounded px-2 py-1 focus:border-primary outline-none">
+            {[25, 50, 100, 200].map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
+        <button disabled={page <= 1} onClick={() => onPage(1)} className="border border-border px-2 py-1 rounded disabled:opacity-30 hover:text-foreground">«</button>
+        <button disabled={page <= 1} onClick={() => onPage(page - 1)} className="border border-border px-2 py-1 rounded disabled:opacity-30 hover:text-foreground">‹ Prev</button>
+        <span className="text-foreground">{page} / {totalPages}</span>
+        <button disabled={page >= totalPages} onClick={() => onPage(page + 1)} className="border border-border px-2 py-1 rounded disabled:opacity-30 hover:text-foreground">Next ›</button>
+        <button disabled={page >= totalPages} onClick={() => onPage(totalPages)} className="border border-border px-2 py-1 rounded disabled:opacity-30 hover:text-foreground">»</button>
       </div>
     </div>
   );
