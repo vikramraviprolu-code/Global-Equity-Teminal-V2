@@ -28,7 +28,7 @@ type Match = SearchResult["matches"][number];
 function TerminalPage() {
   const { t: initialTicker } = Route.useSearch();
   const [query, setQuery] = useState(initialTicker ?? "");
-  const [tab, setTab] = useState<"overview" | "chart" | "scores" | "value" | "momentum" | "cross" | "final">("overview");
+  const [tab, setTab] = useState<"overview" | "chart" | "scores" | "value" | "momentum" | "peers" | "cross" | "scenario" | "final">("overview");
 
   const search = useMutation({ mutationFn: (q: string) => searchTickers({ data: { q } }) });
   const analyze = useMutation({ mutationFn: (t: string) => analyzeTicker({ data: { ticker: t } }) });
@@ -87,7 +87,9 @@ function TerminalPage() {
               {tab === "scores" && <ScoresSection r={result} />}
               {tab === "value" && <ValueSection r={result} />}
               {tab === "momentum" && <MomentumSection r={result} />}
+              {tab === "peers" && <PeersSection r={result} />}
               {tab === "cross" && <CrossSection r={result} />}
+              {tab === "scenario" && <ScenarioSection r={result} />}
               {tab === "final" && <FinalSection r={result} />}
             </div>
             <SharedDisclaimer />
@@ -293,7 +295,9 @@ function Tabs({ tab, setTab }: { tab: string; setTab: (t: any) => void }) {
     ["scores", "Scores"],
     ["value", "Value Screen"],
     ["momentum", "Momentum"],
+    ["peers", "Peers"],
     ["cross", "Cross-Analysis"],
+    ["scenario", "Scenario"],
     ["final", "Final Recommendation"],
   ] as const;
   return (
@@ -707,6 +711,183 @@ function ScoresSection({ r }: { r: Success }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ---------------- Peers Section ----------------
+function PeersSection({ r }: { r: Success }) {
+  const t = r.target;
+  const peers = r.peers;
+  if (!peers.length) {
+    return (
+      <div className="panel p-10 text-center">
+        <div className="font-mono text-xs text-muted-foreground">No peers identified for {t.industry || t.sector || "this stock"}.</div>
+      </div>
+    );
+  }
+
+  const all = [t, ...peers];
+  type Dir = "high" | "low";
+  const metrics: Array<{ key: string; label: string; get: (m: any) => number | null; dir: Dir; fmt: (m: any) => string }> = [
+    { key: "pe", label: "P/E", get: (m) => m.pe, dir: "low", fmt: (m) => fmtNum(m.pe, 1) },
+    { key: "pctFromLow", label: "% From Low", get: (m) => m.pctFromLow, dir: "low", fmt: (m) => fmtPct(m.pctFromLow) },
+    { key: "perf5d", label: "5D %", get: (m) => m.perf5d, dir: "high", fmt: (m) => fmtPct(m.perf5d) },
+    { key: "roc14", label: "ROC14", get: (m) => m.roc14, dir: "high", fmt: (m) => fmtPct(m.roc14) },
+    { key: "roc21", label: "ROC21", get: (m) => m.roc21, dir: "high", fmt: (m) => fmtPct(m.roc21) },
+    { key: "rsi14", label: "RSI", get: (m) => m.rsi14, dir: "high", fmt: (m) => fmtNum(m.rsi14, 0) },
+    { key: "marketCapUsd", label: "Mcap (USD)", get: (m) => m.marketCapUsd, dir: "high", fmt: (m) => fmtMcapUsd(m.marketCapUsd) },
+    { key: "avgVolume", label: "Avg Vol", get: (m) => m.avgVolume, dir: "high", fmt: (m) => fmtVol(m.avgVolume) },
+  ];
+  const winners: Record<string, { best?: string; worst?: string }> = {};
+  for (const mt of metrics) {
+    let best: string | undefined, worst: string | undefined, bv = -Infinity, wv = Infinity;
+    for (const m of all) {
+      const v = mt.get(m);
+      if (v == null || !isFinite(v)) continue;
+      const sc = mt.dir === "high" ? v : -v;
+      if (sc > bv) { bv = sc; best = m.symbol; }
+      if (sc < wv) { wv = sc; worst = m.symbol; }
+    }
+    winners[mt.key] = { best, worst };
+  }
+  const cls = (k: string, sym: string) => {
+    const w = winners[k]; if (!w) return "";
+    if (w.best === sym) return "text-[color:var(--bull)] font-semibold";
+    if (w.worst === sym && all.length > 2) return "text-[color:var(--bear)]";
+    return "";
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="panel">
+        <div className="panel-header">Peer Matrix · {t.industry ?? t.sector ?? "Sector"} ({peers.length} peers, region-aware)</div>
+        <div className="overflow-x-auto">
+          <table className="term">
+            <thead>
+              <tr>
+                <th>Ticker</th><th>Company</th><th>Exch</th>
+                {metrics.map((m) => <th key={m.key} className="text-right">{m.label}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {all.map((m, i) => (
+                <tr key={m.symbol} className={i === 0 ? "bg-primary/5" : "hover:bg-muted/30"}>
+                  <td className="text-primary font-mono">{i === 0 ? "▶ " : ""}{m.symbol}</td>
+                  <td>{m.companyName}</td>
+                  <td className="text-muted-foreground text-xs">{m.exchange ?? "—"}</td>
+                  {metrics.map((mt) => (
+                    <td key={mt.key} className={`num ${cls(mt.key, m.symbol)}`}>{mt.fmt(m)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className="panel">
+        <div className="panel-header">Reading the Matrix</div>
+        <div className="p-5 text-xs text-muted-foreground space-y-2 max-w-3xl">
+          <p><span className="text-[color:var(--bull)]">Green bold</span> = best in cohort for that metric. <span className="text-[color:var(--bear)]">Red</span> = worst (when ≥3 peers).</p>
+          <p>Lower-is-better for P/E and % from 52W low; higher-is-better for momentum, RSI, mcap, and volume.</p>
+          <p>{t.symbol} is highlighted as the target row. Peers are sourced via industry → country → region → global fallback.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------- Scenario Recommendation ----------------
+function ScenarioSection({ r }: { r: Success }) {
+  const t = r.target;
+  const above20 = !!(t.price && t.ma20 && t.price > t.ma20);
+  const above50 = !!(t.price && t.ma50 && t.price > t.ma50);
+  const above200 = !!(t.price && t.ma200 && t.price > t.ma200);
+  const rsi = t.rsi14 ?? 50;
+  const valueOk = t.passesValue;
+  const mom = t.recommendation.momentumScore;
+  const pen = t.recommendation.penalties;
+
+  type Action = "Buy" | "Accumulate" | "Hold" | "Trim" | "Avoid";
+  let action: Action = "Hold";
+  let rationale = "";
+  if (valueOk && mom >= 5 && pen <= 1 && above50) {
+    action = "Buy"; rationale = "Value qualifier with confirmed momentum (above 50D MA, low penalties).";
+  } else if (mom >= 5 && above200 && rsi < 70 && pen <= 1) {
+    action = "Accumulate"; rationale = "Strong primary trend with healthy RSI; scale in on dips.";
+  } else if (rsi > 75 && above20 && t.recommendation.rec === "Buy") {
+    action = "Trim"; rationale = "Overbought RSI on top of large gains — trim into strength to lock partial profits.";
+  } else if (!above200 && pen >= 2 && mom <= 3) {
+    action = "Avoid"; rationale = "Below 200D MA with multiple negative momentum signals; trend is broken.";
+  } else if (mom <= 2 || rsi > 80 || !t.passesGlobal) {
+    action = "Avoid"; rationale = !t.passesGlobal ? "Fails regional liquidity/size filters." : "Weak momentum or extreme RSI — wait for cleaner setup.";
+  } else {
+    action = "Hold"; rationale = "Mixed signals — neither valuation nor momentum offers a high-conviction edge.";
+  }
+
+  const colors: Record<Action, string> = {
+    Buy: "text-[color:var(--bull)] border-[color:var(--bull)]",
+    Accumulate: "text-[color:var(--bull)] border-[color:var(--bull)]/60",
+    Hold: "text-primary border-primary",
+    Trim: "text-primary border-primary",
+    Avoid: "text-[color:var(--bear)] border-[color:var(--bear)]",
+  };
+
+  const entry = t.ma20 ? +(t.ma20 * 1.005).toFixed(2) : t.price;
+  const stop = t.ma50 ? +(t.ma50 * 0.97).toFixed(2) : (t.price ? +(t.price * 0.92).toFixed(2) : null);
+  const target1 = t.high52 ?? (t.price ? +(t.price * 1.15).toFixed(2) : null);
+  const target2 = t.high52 ? +(t.high52 * 1.10).toFixed(2) : (t.price ? +(t.price * 1.30).toFixed(2) : null);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className={`panel border-2 ${colors[action].split(" ").slice(1).join(" ")}`}>
+        <div className="panel-header">Scenario Action</div>
+        <div className="p-6 text-center">
+          <div className={`font-mono text-5xl font-semibold ${colors[action].split(" ")[0]}`}>{action.toUpperCase()}</div>
+          <div className="mt-3 text-xs font-mono text-muted-foreground">CONFIDENCE: <span className="text-foreground">{t.recommendation.confidence}</span></div>
+          <div className="text-xs font-mono text-muted-foreground">HORIZON: <span className="text-foreground">{t.recommendation.horizon}</span></div>
+          <p className="mt-5 text-xs text-left">{rationale}</p>
+        </div>
+      </div>
+
+      <div className="lg:col-span-2 space-y-4">
+        <div className="panel">
+          <div className="panel-header">Trade Plan · Levels</div>
+          <table className="term">
+            <tbody>
+              <tr><td className="text-muted-foreground">Suggested entry zone</td><td className="num">{fmtPrice(entry, t.currency)} <span className="text-[10px] text-muted-foreground">(near 20D MA)</span></td></tr>
+              <tr><td className="text-muted-foreground">Stop / invalidation</td><td className="num text-[color:var(--bear)]">{fmtPrice(stop, t.currency)} <span className="text-[10px] text-muted-foreground">(below 50D MA)</span></td></tr>
+              <tr><td className="text-muted-foreground">Target 1</td><td className="num text-[color:var(--bull)]">{fmtPrice(target1, t.currency)} <span className="text-[10px] text-muted-foreground">(52W high)</span></td></tr>
+              <tr><td className="text-muted-foreground">Target 2</td><td className="num text-[color:var(--bull)]">{fmtPrice(target2, t.currency)} <span className="text-[10px] text-muted-foreground">(stretch)</span></td></tr>
+              <tr><td className="text-muted-foreground">Position sizing hint</td><td>{action === "Buy" ? "Full size" : action === "Accumulate" ? "Scale in 1/3rds" : action === "Trim" ? "Reduce 25–50%" : action === "Hold" ? "No change" : "Zero / exit"}</td></tr>
+            </tbody>
+          </table>
+          <div className="px-4 py-2 text-[10px] text-muted-foreground border-t border-border">
+            Levels are derived heuristics from MAs and 52W range — not professional trade signals.
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="panel">
+            <div className="panel-header text-[color:var(--bull)]">Bullish Triggers</div>
+            <ul className="p-5 text-xs space-y-2 list-disc pl-8 text-muted-foreground">
+              <li>Close above 50D MA on rising volume</li>
+              <li>RSI cross above 50 from below</li>
+              <li>Earnings beat with raised guidance</li>
+              <li>Sector rotation into {t.sector ?? "the sector"}</li>
+            </ul>
+          </div>
+          <div className="panel">
+            <div className="panel-header text-[color:var(--bear)]">Bearish Triggers</div>
+            <ul className="p-5 text-xs space-y-2 list-disc pl-8 text-muted-foreground">
+              <li>Close below 200D MA → trend break</li>
+              <li>RSI {">"} 80 with negative price/RSI divergence</li>
+              <li>Earnings miss or guide-down</li>
+              <li>Sector-wide derating or FX headwind ({t.currency})</li>
+            </ul>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
