@@ -719,6 +719,7 @@ function ScoreCell({ n, invert }: { n: number; invert?: boolean }) {
 function ResultsCards({ rows, watchlist, onAddOne, onRemoveOne, onOpen }: {
   rows: ScoredRow[]; watchlist: string[]; onAddOne: (s: string) => void; onRemoveOne: (s: string) => void; onOpen: (s: string) => void;
 }) {
+  const [ccyMode] = useDisplayCurrency();
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
       {rows.map((r) => {
@@ -732,7 +733,7 @@ function ResultsCards({ rows, watchlist, onAddOne, onRemoveOne, onOpen }: {
                 <div className="text-xs text-muted-foreground truncate" title={r.name}>{r.name}</div>
               </div>
               <div className="text-right">
-                <div className="font-mono text-sm">{fmtPrice(r.price, r.currency)}</div>
+                <div className="font-mono text-sm">{fmtPriceDisplay(r.price, r.currency, r.marketCap, r.marketCapUsd, ccyMode)}</div>
                 <div className={`font-mono text-[10px] ${colorFor(r.perf5d)}`}>{fmtPct(r.perf5d)}</div>
               </div>
             </div>
