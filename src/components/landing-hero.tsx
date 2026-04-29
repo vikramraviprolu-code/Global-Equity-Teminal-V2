@@ -188,6 +188,43 @@ export function LandingHero({
         </div>
       )}
 
+      {/* Capabilities — new AI + visual layer */}
+      <div className="max-w-[1400px] mx-auto px-4 pb-2">
+        <div className="flex items-baseline justify-between mb-4">
+          <div>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-[color:var(--cyan)]">// New</span>
+            <h2 className="text-xl font-medium tracking-tight mt-1">Intelligence layer</h2>
+          </div>
+          <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Powered by Lovable AI</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-border border border-border mb-10">
+          <Capability
+            num="A1"
+            tag="CO-PILOT"
+            title="Ask in plain English"
+            desc="Press ⌘K and describe what you want. The AI translates natural-language queries into screener filters and navigation."
+          />
+          <Capability
+            num="A2"
+            tag="NARRATIVE"
+            title="AI analyst thesis"
+            desc="Every ticker gets a 3-paragraph thesis grounded in its specific fundamentals, momentum and risk metrics."
+          />
+          <Capability
+            num="A3"
+            tag="TREND"
+            title="Inline sparklines"
+            desc="Screener and watchlist rows now render compact 5-day price sparklines so trend reads at a glance."
+          />
+          <Capability
+            num="A4"
+            tag="DIFF"
+            title="Compare diff mode"
+            desc="On the Compare page, hide identical rows and highlight metric divergence to surface what actually differs."
+          />
+        </div>
+      </div>
+
       {/* Featured presets */}
       <div className="max-w-[1400px] mx-auto px-4 pb-10">
         <div className="flex items-baseline justify-between mb-4">
@@ -215,6 +252,19 @@ export function LandingHero({
         </div>
       </div>
     </section>
+  );
+}
+
+function Capability({ num, tag, title, desc }: { num: string; tag: string; title: string; desc: string }) {
+  return (
+    <div className="bg-card p-5">
+      <div className="flex items-start justify-between mb-10">
+        <span className="font-mono text-[10px] text-[color:var(--cyan)] tracking-widest">{num} // {tag}</span>
+        <span className="size-1.5 rounded-full bg-[color:var(--cyan)]" />
+      </div>
+      <h3 className="text-base font-medium mb-1.5">{title}</h3>
+      <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+    </div>
   );
 }
 
