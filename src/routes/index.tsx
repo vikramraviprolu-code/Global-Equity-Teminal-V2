@@ -271,6 +271,22 @@ function ScreenerPage() {
                 + Add {selected.size} to watchlist
               </button>
             )}
+            <button
+              onClick={() => exportRowsCsv(sorted, `screener-${filters.preset}-${new Date().toISOString().slice(0,10)}.csv`)}
+              disabled={sorted.length === 0}
+              className="font-mono text-[10px] uppercase tracking-wider border border-border px-3 py-1.5 rounded text-muted-foreground hover:text-foreground hover:border-primary/40 disabled:opacity-40"
+              title="Export current filtered results as CSV"
+            >
+              ⇩ CSV ({sorted.length})
+            </button>
+            <button
+              onClick={() => { if (snapshotRef.current) exportNodeAsPng(snapshotRef.current, `screener-${filters.view}-${Date.now()}.png`); }}
+              disabled={sorted.length === 0}
+              className="font-mono text-[10px] uppercase tracking-wider border border-border px-3 py-1.5 rounded text-muted-foreground hover:text-foreground hover:border-primary/40 disabled:opacity-40"
+              title="Snapshot current view as PNG"
+            >
+              ⇩ PNG
+            </button>
             {filters.view === "table" && (
               <ColumnMenu open={colMenuOpen} setOpen={setColMenuOpen} columns={columns} toggleCol={toggleCol} />
             )}
@@ -282,30 +298,37 @@ function ScreenerPage() {
           {isLoading && <LoadingState />}
           {isError && <ErrorState onRetry={refetch} />}
           {!isLoading && !isError && sorted.length === 0 && <EmptyState onReset={() => replaceFilters(DEFAULT_FILTERS)} />}
-          {!isLoading && !isError && sorted.length > 0 && filters.view === "table" && (
-            <>
-              <ResultsTable
-                rows={pageRows} columns={columns}
-                sortBy={filters.sortBy} sortDir={filters.sortDir} onSort={toggleSort}
-                selected={selected} toggleSelect={toggleSelect}
-                expanded={expanded} toggleExpand={toggleExpand}
-                watchlist={watchlist} onAddOne={(s) => addWatch([s])} onRemoveOne={removeWatch}
-                onOpen={(s) => navigate({ to: "/terminal/$symbol", params: { symbol: s } })}
-              />
-              <Pager page={page} totalPages={totalPages} pageSize={filters.pageSize} total={sorted.length}
-                onPage={(p) => setFilters({ page: p })} onPageSize={(s) => setFilters({ pageSize: s, page: 1 })} />
-            </>
-          )}
-          {!isLoading && !isError && sorted.length > 0 && filters.view === "chart" && (
-            <>
-              <ResultsCards
-                rows={pageRows}
-                watchlist={watchlist} onAddOne={(s) => addWatch([s])} onRemoveOne={removeWatch}
-                onOpen={(s) => navigate({ to: "/terminal/$symbol", params: { symbol: s } })}
-              />
-              <Pager page={page} totalPages={totalPages} pageSize={filters.pageSize} total={sorted.length}
-                onPage={(p) => setFilters({ page: p })} onPageSize={(s) => setFilters({ pageSize: s, page: 1 })} />
-            </>
+          {!isLoading && !isError && sorted.length > 0 && (
+            <div ref={snapshotRef}>
+              {filters.view === "table" && (
+                <>
+                  <ResultsTable
+                    rows={pageRows} columns={columns}
+                    sortBy={filters.sortBy} sortDir={filters.sortDir} onSort={toggleSort}
+                    selected={selected} toggleSelect={toggleSelect}
+                    expanded={expanded} toggleExpand={toggleExpand}
+                    watchlist={watchlist} onAddOne={(s) => addWatch([s])} onRemoveOne={removeWatch}
+                    onOpen={(s) => navigate({ to: "/terminal/$symbol", params: { symbol: s } })}
+                  />
+                  <Pager page={page} totalPages={totalPages} pageSize={filters.pageSize} total={sorted.length}
+                    onPage={(p) => setFilters({ page: p })} onPageSize={(s) => setFilters({ pageSize: s, page: 1 })} />
+                </>
+              )}
+              {filters.view === "chart" && (
+                <>
+                  <ResultsCards
+                    rows={pageRows}
+                    watchlist={watchlist} onAddOne={(s) => addWatch([s])} onRemoveOne={removeWatch}
+                    onOpen={(s) => navigate({ to: "/terminal/$symbol", params: { symbol: s } })}
+                  />
+                  <Pager page={page} totalPages={totalPages} pageSize={filters.pageSize} total={sorted.length}
+                    onPage={(p) => setFilters({ page: p })} onPageSize={(s) => setFilters({ pageSize: s, page: 1 })} />
+                </>
+              )}
+              {filters.view === "heatmap" && (
+                <SectorHeatmap rows={sorted} metric={filters.heatMetric} onMetric={(m) => setFilters({ heatMetric: m })} />
+              )}
+            </div>
           )}
         </div>
 
@@ -517,10 +540,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function ViewToggle({ view, setView }: { view: "table" | "chart"; setView: (v: "table" | "chart") => void }) {
+function ViewToggle({ view, setView }: { view: "table" | "chart" | "heatmap"; setView: (v: "table" | "chart" | "heatmap") => void }) {
   return (
     <div className="flex border border-border rounded overflow-hidden">
-      {(["table", "chart"] as const).map((v) => (
+      {(["table", "chart", "heatmap"] as const).map((v) => (
         <button key={v} onClick={() => setView(v)}
           className={`font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 ${view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
           {v}
