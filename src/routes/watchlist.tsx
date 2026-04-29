@@ -8,6 +8,7 @@ import { fmtNum, fmtPct, fmtMcapUsd, fmtPriceDisplay, colorFor } from "@/lib/for
 import { useDisplayCurrency } from "@/hooks/use-display-currency";
 import { useWatchlistNamed, WATCHLIST_NAMES, readAllWatchlists, type WatchlistName } from "@/hooks/use-watchlist";
 import { SiteNav, Disclaimer } from "@/components/site-nav";
+import { Sparkline } from "@/components/sparkline";
 
 export const Route = createFileRoute("/watchlist")({
   validateSearch: (s: Record<string, unknown>) => z.object({ list: z.string().optional() }).parse(s),
@@ -103,6 +104,7 @@ function WatchlistPage() {
                     <th className="text-right">Price</th>
                     <th className="text-right">Mcap (USD)</th>
                     <th className="text-right">P/E</th>
+                    <th>Trend</th>
                     <th className="text-right">5D %</th>
                     <th className="text-right">RSI</th>
                     <th className="text-right">Value</th>
@@ -121,6 +123,7 @@ function WatchlistPage() {
                       <td className="num">{fmtPriceDisplay(r.price, r.currency, r.marketCap, r.marketCapUsd, ccyMode)}</td>
                       <td className="num">{fmtMcapUsd(r.marketCapUsd)}</td>
                       <td className="num">{fmtNum(r.pe, 1)}</td>
+                      <td><Sparkline closes={r.closes} width={72} height={20} /></td>
                       <td className={`num ${colorFor(r.perf5d)}`}>{fmtPct(r.perf5d)}</td>
                       <td className="num">{fmtNum(r.rsi14, 0)}</td>
                       <td className="num font-mono">{r.scores.value}</td>
