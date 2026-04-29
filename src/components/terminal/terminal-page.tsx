@@ -7,6 +7,7 @@ import { SiteNav, Disclaimer as SharedDisclaimer } from "@/components/site-nav";
 import { PriceChart } from "@/components/price-chart";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { scoreRow } from "@/lib/scores";
+import { backtestMaCross, computeHistoricalReturns } from "@/lib/backtest";
 
 const routeApi = getRouteApi("/terminal");
 
