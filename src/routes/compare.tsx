@@ -218,3 +218,64 @@ function Cell({ children, num = false, muted = false, cls = "" }: { children: Re
     <td className={`${num ? "num text-right" : ""} ${muted ? "text-muted-foreground" : ""} ${cls}`}>{children}</td>
   );
 }
+
+// Distinct hues from the design tokens — cycled for up to 6 series.
+const SERIES_COLORS = [
+  "hsl(var(--primary))",
+  "var(--bull)",
+  "var(--bear)",
+  "#a855f7",
+  "#06b6d4",
+  "#f59e0b",
+];
+
+function RadarPanel({ rows }: { rows: ReturnType<typeof scoreAll> }) {
+  // Normalize all 5 axes to 0-100. "Risk" is inverted so "outer = better" everywhere.
+  const data = [
+    { axis: "Value", ...Object.fromEntries(rows.map((r) => [r.symbol, r.scores.value])) },
+    { axis: "Momentum", ...Object.fromEntries(rows.map((r) => [r.symbol, r.scores.momentum])) },
+    { axis: "Quality", ...Object.fromEntries(rows.map((r) => [r.symbol, r.scores.quality])) },
+    { axis: "Safety", ...Object.fromEntries(rows.map((r) => [r.symbol, 100 - r.scores.risk])) },
+    { axis: "Confidence", ...Object.fromEntries(rows.map((r) => [r.symbol, r.scores.confidence])) },
+  ];
+  return (
+    <div className="panel mt-4">
+      <div className="panel-header flex items-center justify-between">
+        <span>Score Radar · Normalized 0–100</span>
+        <span className="text-[10px] font-normal normal-case tracking-normal text-muted-foreground">
+          Larger area = stronger overall profile · Risk is shown as Safety (100 − Risk)
+        </span>
+      </div>
+      <div className="p-4" style={{ height: 380 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <RadarChart data={data} outerRadius="78%">
+            <PolarGrid stroke="hsl(var(--border))" />
+            <PolarAngleAxis dataKey="axis" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11, fontFamily: "monospace" }} />
+            <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }} stroke="hsl(var(--border))" />
+            {rows.map((r, i) => (
+              <Radar
+                key={r.symbol}
+                name={r.symbol}
+                dataKey={r.symbol}
+                stroke={SERIES_COLORS[i % SERIES_COLORS.length]}
+                fill={SERIES_COLORS[i % SERIES_COLORS.length]}
+                fillOpacity={0.18}
+                strokeWidth={2}
+              />
+            ))}
+            <RTooltip
+              contentStyle={{
+                background: "hsl(var(--card))",
+                border: "1px solid hsl(var(--border))",
+                borderRadius: 4,
+                fontSize: 11,
+                fontFamily: "monospace",
+              }}
+            />
+            <Legend wrapperStyle={{ fontSize: 11, fontFamily: "monospace" }} />
+          </RadarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
