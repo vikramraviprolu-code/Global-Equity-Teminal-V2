@@ -10,6 +10,8 @@ import { scoreRow } from "@/lib/scores";
 import { backtestMaCross, computeHistoricalReturns } from "@/lib/backtest";
 import { SourcedCell } from "@/components/sourced-value";
 import { provenanceFor } from "@/lib/sourced";
+import { downloadTerminalPdf } from "@/lib/pdf-report";
+import { onAction } from "@/lib/action-bus";
 
 const routeApi = getRouteApi("/terminal");
 
