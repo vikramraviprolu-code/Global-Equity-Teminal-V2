@@ -92,16 +92,28 @@ function applyPreset(p: PresetId): Filters {
 function passes(r: ScoredRow, f: Filters): boolean {
   if (f.region && r.region !== f.region) return false;
   if (f.sector && r.sector !== f.sector) return false;
-  if (f.search) {
-    const q = f.search.toLowerCase();
+  if (f.q) {
+    const q = f.q.toLowerCase();
     if (!r.symbol.toLowerCase().includes(q) && !r.name.toLowerCase().includes(q)) return false;
   }
   if (f.minMcap > 0 && (r.marketCapUsd ?? 0) < f.minMcap) return false;
   if (f.minPrice > 0 && (r.price ?? 0) < f.minPrice) return false;
   if (f.minVolume > 0 && (r.avgVolume ?? 0) < f.minVolume) return false;
   if (f.peMax != null && (r.pe == null || r.pe <= 0 || r.pe > f.peMax)) return false;
+  if (f.pbMax != null && (r.pb == null || r.pb <= 0 || r.pb > f.pbMax)) return false;
+  if (f.dyMin != null && (r.dividendYield == null || r.dividendYield < f.dyMin)) return false;
   if (r.rsi14 != null && (r.rsi14 < f.rsiMin || r.rsi14 > f.rsiMax)) return false;
   if (f.near52wLowPct != null && (r.pctFromLow == null || r.pctFromLow > f.near52wLowPct)) return false;
+  if (f.rocMin != null) {
+    if ((r.roc14 ?? -Infinity) < f.rocMin && (r.roc21 ?? -Infinity) < f.rocMin) return false;
+  }
+  if (f.maCross !== "any") {
+    const { ma50, ma200, price } = r;
+    if (f.maCross === "golden" && !(ma50 != null && ma200 != null && ma50 > ma200)) return false;
+    if (f.maCross === "death" && !(ma50 != null && ma200 != null && ma50 < ma200)) return false;
+    if (f.maCross === "above50" && !(price != null && r.ma50 != null && price > r.ma50)) return false;
+    if (f.maCross === "above200" && !(price != null && ma200 != null && price > ma200)) return false;
+  }
   if (f.minConfidence > 0 && r.scores.confidence < f.minConfidence) return false;
   if (f.excludeMock && r.isMock) return false;
 
@@ -125,16 +137,60 @@ function passes(r: ScoredRow, f: Filters): boolean {
   return true;
 }
 
+// ---------------- column visibility ----------------
+const ALL_COLUMNS = [
+  { key: "symbol", label: "Ticker", default: true },
+  { key: "name", label: "Company", default: true },
+  { key: "region", label: "Region", default: true },
+  { key: "sector", label: "Sector", default: true },
+  { key: "price", label: "Price", default: true },
+  { key: "marketCapUsd", label: "Mcap (USD)", default: true },
+  { key: "pe", label: "P/E", default: true },
+  { key: "pb", label: "P/B", default: false },
+  { key: "dividendYield", label: "Div Yield %", default: false },
+  { key: "pctFromLow", label: "From 52W Low", default: true },
+  { key: "perf5d", label: "5D %", default: true },
+  { key: "rsi14", label: "RSI", default: true },
+  { key: "value", label: "Value", default: true },
+  { key: "momentum", label: "Mom", default: true },
+  { key: "quality", label: "Qual", default: true },
+  { key: "risk", label: "Risk", default: true },
+  { key: "confidence", label: "Conf", default: true },
+] as const;
+type ColumnKey = (typeof ALL_COLUMNS)[number]["key"];
+const COL_STORAGE = "screener.columns.v2";
+
+function loadCols(): Set<ColumnKey> {
+  try {
+    const raw = typeof localStorage !== "undefined" ? localStorage.getItem(COL_STORAGE) : null;
+    if (raw) return new Set(JSON.parse(raw));
+  } catch {}
+  return new Set(ALL_COLUMNS.filter((c) => c.default).map((c) => c.key));
+}
+function saveCols(s: Set<ColumnKey>) {
+  try { localStorage.setItem(COL_STORAGE, JSON.stringify([...s])); } catch {}
+}
+
 // ---------------- COMPONENT ----------------
 function ScreenerPage() {
   const navigate = useNavigate();
+  const filters = Route.useSearch();
   const { items: watchlist, add: addWatch, remove: removeWatch } = useWatchlist();
 
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
-  const [view, setView] = useState<"table" | "chart">("table");
-  const [sortBy, setSortBy] = useState<keyof ScoredRow | "value" | "momentum" | "quality" | "risk" | "confidence">("marketCapUsd");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const setFilters = (next: Partial<Filters>) =>
+    navigate({ to: "/", search: (prev) => ({ ...prev, ...next, page: next.page ?? 1 }) });
+  const replaceFilters = (next: Filters) =>
+    navigate({ to: "/", search: { ...next, page: 1 } });
+
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [columns, setColumns] = useState<Set<ColumnKey>>(() => loadCols());
+  const [colMenuOpen, setColMenuOpen] = useState(false);
+  const toggleCol = (k: ColumnKey) => {
+    const next = new Set(columns);
+    if (next.has(k)) next.delete(k); else next.add(k);
+    setColumns(next); saveCols(next);
+  };
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["universe"],
@@ -146,23 +202,28 @@ function ScreenerPage() {
   const filtered = useMemo(() => scored.filter((r) => passes(r, filters)), [scored, filters]);
   const sorted = useMemo(() => {
     const arr = [...filtered];
-    const key = sortBy as string;
+    const key = filters.sortBy;
     arr.sort((a, b) => {
       const av = key in a.scores ? (a.scores as any)[key] : (a as any)[key];
       const bv = key in b.scores ? (b.scores as any)[key] : (b as any)[key];
       const an = av == null ? -Infinity : av;
       const bn = bv == null ? -Infinity : bv;
       if (typeof an === "string" || typeof bn === "string") {
-        return sortDir === "asc" ? String(an).localeCompare(String(bn)) : String(bn).localeCompare(String(an));
+        return filters.sortDir === "asc" ? String(an).localeCompare(String(bn)) : String(bn).localeCompare(String(an));
       }
-      return sortDir === "asc" ? an - bn : bn - an;
+      return filters.sortDir === "asc" ? an - bn : bn - an;
     });
     return arr;
-  }, [filtered, sortBy, sortDir]);
+  }, [filtered, filters.sortBy, filters.sortDir]);
 
-  const toggleSort = (k: typeof sortBy) => {
-    if (sortBy === k) setSortDir(sortDir === "asc" ? "desc" : "asc");
-    else { setSortBy(k); setSortDir("desc"); }
+  const totalPages = Math.max(1, Math.ceil(sorted.length / filters.pageSize));
+  const page = Math.min(filters.page, totalPages);
+  const pageStart = (page - 1) * filters.pageSize;
+  const pageRows = sorted.slice(pageStart, pageStart + filters.pageSize);
+
+  const toggleSort = (k: SortKey) => {
+    if (filters.sortBy === k) setFilters({ sortDir: filters.sortDir === "asc" ? "desc" : "asc" });
+    else setFilters({ sortBy: k, sortDir: "desc" });
   };
 
   const toggleSelect = (sym: string) => {
@@ -170,8 +231,13 @@ function ScreenerPage() {
     if (next.has(sym)) next.delete(sym); else next.add(sym);
     setSelected(next);
   };
+  const toggleExpand = (sym: string) => {
+    const next = new Set(expanded);
+    if (next.has(sym)) next.delete(sym); else next.add(sym);
+    setExpanded(next);
+  };
 
-  const onPickPreset = (p: PresetId) => setFilters((f) => applyPreset(p, DEFAULT_FILTERS));
+  const onPickPreset = (p: PresetId) => replaceFilters(applyPreset(p));
 
   const sectors = useMemo(() => Array.from(new Set(scored.map((r) => r.sector))).sort(), [scored]);
 
@@ -181,13 +247,16 @@ function ScreenerPage() {
       <main className="flex-1">
         <Hero meta={data?.meta} />
         <PresetBar current={filters.preset} onPick={onPickPreset} />
-        <FilterBar filters={filters} setFilters={setFilters} sectors={sectors} />
+        <FilterBar filters={filters} setFilters={setFilters} sectors={sectors} onReset={() => replaceFilters(DEFAULT_FILTERS)} />
 
         <div className="max-w-[1400px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3 border-b border-border">
           <div className="text-xs font-mono text-muted-foreground">
             <span className="text-foreground">{sorted.length}</span> of <span className="text-foreground">{scored.length}</span> stocks ·
             <span className="ml-2">Mock: <span className="text-primary">{data?.meta.mockCount ?? 0}</span></span> ·
             <span className="ml-2">Live: <span className="text-[color:var(--bull)]">{data?.meta.liveCount ?? 0}</span></span>
+            {sorted.length > 0 && (
+              <span className="ml-2">· Page <span className="text-foreground">{page}</span>/{totalPages}</span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {selected.size > 0 && (
@@ -198,29 +267,41 @@ function ScreenerPage() {
                 + Add {selected.size} to watchlist
               </button>
             )}
-            <ViewToggle view={view} setView={setView} />
+            {filters.view === "table" && (
+              <ColumnMenu open={colMenuOpen} setOpen={setColMenuOpen} columns={columns} toggleCol={toggleCol} />
+            )}
+            <ViewToggle view={filters.view} setView={(v) => setFilters({ view: v })} />
           </div>
         </div>
 
         <div className="max-w-[1400px] mx-auto px-4 py-4">
           {isLoading && <LoadingState />}
           {isError && <ErrorState onRetry={refetch} />}
-          {!isLoading && !isError && sorted.length === 0 && <EmptyState onReset={() => setFilters(DEFAULT_FILTERS)} />}
-          {!isLoading && !isError && sorted.length > 0 && view === "table" && (
-            <ResultsTable
-              rows={sorted}
-              sortBy={sortBy} sortDir={sortDir} onSort={toggleSort}
-              selected={selected} toggleSelect={toggleSelect}
-              watchlist={watchlist} onAddOne={(s) => addWatch([s])} onRemoveOne={removeWatch}
-              onOpen={(s) => navigate({ to: "/terminal", search: { t: s } as any })}
-            />
+          {!isLoading && !isError && sorted.length === 0 && <EmptyState onReset={() => replaceFilters(DEFAULT_FILTERS)} />}
+          {!isLoading && !isError && sorted.length > 0 && filters.view === "table" && (
+            <>
+              <ResultsTable
+                rows={pageRows} columns={columns}
+                sortBy={filters.sortBy} sortDir={filters.sortDir} onSort={toggleSort}
+                selected={selected} toggleSelect={toggleSelect}
+                expanded={expanded} toggleExpand={toggleExpand}
+                watchlist={watchlist} onAddOne={(s) => addWatch([s])} onRemoveOne={removeWatch}
+                onOpen={(s) => navigate({ to: "/terminal", search: { t: s } as any })}
+              />
+              <Pager page={page} totalPages={totalPages} pageSize={filters.pageSize} total={sorted.length}
+                onPage={(p) => setFilters({ page: p })} onPageSize={(s) => setFilters({ pageSize: s, page: 1 })} />
+            </>
           )}
-          {!isLoading && !isError && sorted.length > 0 && view === "chart" && (
-            <ResultsCards
-              rows={sorted}
-              watchlist={watchlist} onAddOne={(s) => addWatch([s])} onRemoveOne={removeWatch}
-              onOpen={(s) => navigate({ to: "/terminal", search: { t: s } as any })}
-            />
+          {!isLoading && !isError && sorted.length > 0 && filters.view === "chart" && (
+            <>
+              <ResultsCards
+                rows={pageRows}
+                watchlist={watchlist} onAddOne={(s) => addWatch([s])} onRemoveOne={removeWatch}
+                onOpen={(s) => navigate({ to: "/terminal", search: { t: s } as any })}
+              />
+              <Pager page={page} totalPages={totalPages} pageSize={filters.pageSize} total={sorted.length}
+                onPage={(p) => setFilters({ page: p })} onPageSize={(s) => setFilters({ pageSize: s, page: 1 })} />
+            </>
           )}
         </div>
 
