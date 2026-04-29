@@ -27,7 +27,7 @@ const TerminalRoute = TerminalRouteImport.update({
   id: '/terminal',
   path: '/terminal',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/terminal.lazy').then((d) => d.Route))
 const SourcesRoute = SourcesRouteImport.update({
   id: '/sources',
   path: '/sources',
