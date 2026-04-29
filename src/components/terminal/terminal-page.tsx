@@ -8,6 +8,8 @@ import { PriceChart } from "@/components/price-chart";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { scoreRow } from "@/lib/scores";
 import { backtestMaCross, computeHistoricalReturns } from "@/lib/backtest";
+import { SourcedCell } from "@/components/sourced-value";
+import { provenanceFor } from "@/lib/sourced";
 
 const routeApi = getRouteApi("/terminal");
 
