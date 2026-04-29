@@ -311,17 +311,6 @@ function Tabs({ tab, setTab }: { tab: string; setTab: (t: any) => void }) {
     </div>
   );
 }
-  return (
-    <div className="flex border-b border-border overflow-x-auto">
-      {tabs.map(([k, l]) => (
-        <button key={k} onClick={() => setTab(k)}
-          className={`px-4 py-2 text-xs font-mono uppercase tracking-wider whitespace-nowrap border-b-2 transition-colors ${tab === k ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-          {l}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function OverviewSection({ r }: { r: Success }) {
   const t = r.target;
