@@ -15,6 +15,7 @@ export const Route = createFileRoute("/watchlist")({
       { title: "Watchlists — Global Equity Terminal v2" },
       { name: "description", content: "Track shortlisted global stocks across multiple watchlists with live scores, momentum, and value signals." },
     ],
+    links: [{ rel: "canonical", href: "https://rankaisolutions.tech/watchlist" }],
   }),
   component: WatchlistPage,
 });

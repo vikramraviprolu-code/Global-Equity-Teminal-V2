@@ -13,6 +13,7 @@ export const Route = createFileRoute("/events")({
       { property: "og:title", content: "Events Calendar — Global Equity Terminal v2" },
       { property: "og:description", content: "Upcoming earnings, ex-dividend, and stock-split dates across the curated global universe." },
     ],
+    links: [{ rel: "canonical", href: "https://rankaisolutions.tech/events" }],
   }),
   component: EventsPage,
 });

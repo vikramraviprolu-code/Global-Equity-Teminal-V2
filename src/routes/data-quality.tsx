@@ -10,7 +10,10 @@ export const Route = createFileRoute("/data-quality")({
     meta: [
       { title: "Data Quality Command Center — Global Equity Terminal v2" },
       { name: "description", content: "Source freshness, missing-metric warnings, and per-ticker confidence across the curated global universe." },
+      { property: "og:title", content: "Data Quality Command Center — Global Equity Terminal v2" },
+      { property: "og:description", content: "Source freshness, missing-metric warnings, and per-ticker confidence across the curated global universe." },
     ],
+    links: [{ rel: "canonical", href: "https://rankaisolutions.tech/data-quality" }],
   }),
   component: DataQualityPage,
 });

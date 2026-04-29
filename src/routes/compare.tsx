@@ -14,7 +14,10 @@ export const Route = createFileRoute("/compare")({
     meta: [
       { title: "Compare Stocks — Global Equity Terminal v2" },
       { name: "description", content: "Side-by-side comparison of global stocks: valuation, momentum, quality, risk, and data confidence." },
+      { property: "og:title", content: "Compare Stocks — Global Equity Terminal v2" },
+      { property: "og:description", content: "Side-by-side comparison of global stocks: valuation, momentum, quality, risk, and data confidence." },
     ],
+    links: [{ rel: "canonical", href: "https://rankaisolutions.tech/compare" }],
   }),
   component: ComparePage,
 });

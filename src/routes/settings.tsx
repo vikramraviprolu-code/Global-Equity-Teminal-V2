@@ -9,6 +9,7 @@ export const Route = createFileRoute("/settings")({
       { title: "Settings — Global Equity Terminal v2" },
       { name: "description", content: "Configure preferences, manage local watchlists, and view storage usage for Global Equity Terminal v2." },
     ],
+    links: [{ rel: "canonical", href: "https://rankaisolutions.tech/settings" }],
   }),
   component: SettingsPage,
 });
