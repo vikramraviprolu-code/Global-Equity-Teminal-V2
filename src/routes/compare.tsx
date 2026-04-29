@@ -25,6 +25,7 @@ export const Route = createFileRoute("/compare")({
 
 function ComparePage() {
   const navigate = useNavigate();
+  const [ccyMode] = useDisplayCurrency();
   const { s: initial } = Route.useSearch();
   const initialSyms = useMemo(() => (initial ? initial.split(",").map((x: string) => x.trim()).filter(Boolean) : []), [initial]);
 
@@ -160,7 +161,7 @@ function ComparePage() {
                 <Row label="Currency">{rows.map((r) => <Cell key={r.symbol}>{r.currency}</Cell>)}</Row>
 
                 <Section label="Valuation & Size" />
-                <Row label="Price">{rows.map((r) => <Cell key={r.symbol} num>{fmtPrice(r.price, r.currency)}</Cell>)}</Row>
+                <Row label="Price">{rows.map((r) => <Cell key={r.symbol} num>{fmtPriceDisplay(r.price, r.currency, r.marketCap, r.marketCapUsd, ccyMode)}</Cell>)}</Row>
                 <Row label="Mcap (USD)">{rows.map((r) => <Cell key={r.symbol} num cls={hl("marketCapUsd", r.symbol)}>{fmtMcapUsd(r.marketCapUsd)}</Cell>)}</Row>
                 <Row label="P/E (lower better)">{rows.map((r) => <Cell key={r.symbol} num cls={hl("pe", r.symbol)}>{fmtNum(r.pe, 1)}</Cell>)}</Row>
                 <Row label="% from 52W low">{rows.map((r) => <Cell key={r.symbol} num cls={hl("pctFromLow", r.symbol)}>{fmtPct(r.pctFromLow)}</Cell>)}</Row>
