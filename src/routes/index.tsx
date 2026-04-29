@@ -250,6 +250,14 @@ function ScreenerPage() {
 
   const sectors = useMemo(() => Array.from(new Set(scored.map((r) => r.sector))).sort(), [scored]);
 
+  // Press "e" to export current filtered results as CSV
+  useEffect(() => {
+    return onAction("export", () => {
+      if (sorted.length === 0) return;
+      exportRowsCsv(sorted, `screener-${filters.preset}-${new Date().toISOString().slice(0,10)}.csv`);
+    });
+  }, [sorted, filters.preset]);
+
   return (
     <div className="min-h-screen flex flex-col">
       <SiteNav right={<button onClick={() => refetch()} disabled={isFetching} className="bg-primary text-primary-foreground px-3 py-1.5 rounded hover:opacity-90 disabled:opacity-50">{isFetching ? "Refreshing…" : "Refresh"}</button>} />
