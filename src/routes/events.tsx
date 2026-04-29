@@ -1,63 +1,319 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { fetchUniverse } from "@/server/screen.functions";
+import { fetchEvents, type CalendarEvent, type EventKind } from "@/server/events.functions";
 import { SiteNav, Disclaimer } from "@/components/site-nav";
+import { useWatchlist } from "@/hooks/use-watchlist";
 
 export const Route = createFileRoute("/events")({
   head: () => ({
     meta: [
       { title: "Events Calendar — Global Equity Terminal v2" },
-      { name: "description", content: "Earnings, dividends, and corporate event calendar across the curated global universe." },
+      { name: "description", content: "Upcoming earnings, ex-dividend, and stock-split dates across the curated global universe." },
+      { property: "og:title", content: "Events Calendar — Global Equity Terminal v2" },
+      { property: "og:description", content: "Upcoming earnings, ex-dividend, and stock-split dates across the curated global universe." },
     ],
   }),
   component: EventsPage,
 });
 
+const REGIONS = ["US", "IN", "EU", "JP", "HK", "KR", "TW", "AU", "SG", "CN"] as const;
+const KINDS: { key: EventKind; label: string; tone: string }[] = [
+  { key: "earnings", label: "Earnings", tone: "text-primary border-primary/40" },
+  { key: "dividend", label: "Ex-Div",   tone: "text-[color:var(--bull)] border-[color:var(--bull)]/40" },
+  { key: "split",    label: "Splits",   tone: "text-[color:var(--bear)] border-[color:var(--bear)]/40" },
+];
+
+const RANGES = [
+  { key: "7d",  label: "Next 7d",  days: 7 },
+  { key: "30d", label: "Next 30d", days: 30 },
+  { key: "90d", label: "Next 90d", days: 90 },
+  { key: "all", label: "All",      days: 9999 },
+] as const;
+type RangeKey = (typeof RANGES)[number]["key"];
+
 function EventsPage() {
+  const navigate = useNavigate();
+  const { items: watchlist, add: addWatch, remove: removeWatch } = useWatchlist();
+
   const [scope, setScope] = useState<"all" | "watchlist">("all");
-  const { data, isLoading } = useQuery({
-    queryKey: ["universe"],
-    queryFn: () => fetchUniverse({ data: {} }),
-    staleTime: 5 * 60 * 1000,
+  const [range, setRange] = useState<RangeKey>("30d");
+  const [region, setRegion] = useState<string>("");
+  const [kinds, setKinds] = useState<Set<EventKind>>(new Set(["earnings", "dividend", "split"]));
+  const [q, setQ] = useState("");
+
+  const wlActive = scope === "watchlist" && watchlist.length > 0;
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+    queryKey: ["events", scope, wlActive ? watchlist.join(",") : "all"],
+    queryFn: () => fetchEvents({ data: wlActive ? { symbols: watchlist } : {} }),
+    staleTime: 10 * 60 * 1000,
   });
 
-  // Earnings dates aren't yet in ScreenerRow — we surface "Data unavailable" honestly per PRD.
-  // Future: extend fetchScreenerRow to pull earnings_date, dividend_date, ex_div_date, split_date.
-  const rows = useMemo(() => data?.rows ?? [], [data]);
+  const filtered = useMemo(() => {
+    const all = data?.events ?? [];
+    const today = new Date(); today.setUTCHours(0, 0, 0, 0);
+    const maxDays = RANGES.find((r) => r.key === range)?.days ?? 30;
+    const cutoff = new Date(today); cutoff.setUTCDate(cutoff.getUTCDate() + maxDays);
+    const ql = q.trim().toLowerCase();
+    return all.filter((e) => {
+      if (!kinds.has(e.kind)) return false;
+      if (region && e.region !== region) return false;
+      const ed = new Date(e.date);
+      if (ed < today || ed > cutoff) return false;
+      if (ql && !(e.symbol.toLowerCase().includes(ql) || e.name.toLowerCase().includes(ql))) return false;
+      return true;
+    });
+  }, [data, range, region, kinds, q]);
+
+  const groups = useMemo(() => {
+    const m = new Map<string, CalendarEvent[]>();
+    for (const e of filtered) {
+      if (!m.has(e.date)) m.set(e.date, []);
+      m.get(e.date)!.push(e);
+    }
+    return Array.from(m.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [filtered]);
+
+  const counts = useMemo(() => {
+    const c: Record<EventKind, number> = { earnings: 0, dividend: 0, split: 0 };
+    for (const e of filtered) c[e.kind]++;
+    return c;
+  }, [filtered]);
+
+  const toggleKind = (k: EventKind) => {
+    const n = new Set(kinds);
+    if (n.has(k)) n.delete(k); else n.add(k);
+    setKinds(n);
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
       <SiteNav />
       <main className="flex-1 max-w-[1400px] mx-auto px-4 py-6 w-full">
-        <h1 className="text-xl font-semibold tracking-tight">Events Calendar</h1>
-        <p className="text-xs text-muted-foreground mt-1">Upcoming earnings, dividends, and corporate events from free/public sources.</p>
-
-        <div className="mt-4 flex items-center gap-2 text-xs font-mono uppercase tracking-wider">
-          <button onClick={() => setScope("all")} className={`px-3 py-1.5 rounded border ${scope === "all" ? "border-primary text-primary" : "border-border text-muted-foreground"}`}>All Universe</button>
-          <button onClick={() => setScope("watchlist")} className={`px-3 py-1.5 rounded border ${scope === "watchlist" ? "border-primary text-primary" : "border-border text-muted-foreground"}`}>Watchlist Only</button>
+        <div className="flex items-baseline justify-between flex-wrap gap-2">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">Events Calendar</h1>
+            <p className="text-xs text-muted-foreground mt-1">
+              Upcoming earnings, ex-dividend, and stock-split dates from the curated universe.
+            </p>
+          </div>
+          <div className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
+            {data?.meta && (
+              <span>
+                {data.meta.eventCount} events · {data.meta.succeeded} symbols ·{" "}
+                {new Date(data.meta.retrievedAt).toLocaleString()}{" "}
+                {isFetching && <span className="text-primary animate-pulse">· refreshing</span>}
+              </span>
+            )}
+          </div>
         </div>
 
-        {isLoading ? (
-          <div className="panel p-10 text-center mt-4 font-mono text-sm text-primary animate-pulse">LOADING…</div>
-        ) : (
-          <div className="panel mt-4">
-            <div className="panel-header">Tracked Tickers · {rows.length}</div>
-            <div className="p-6">
-              <div className="border border-primary/30 bg-primary/5 rounded p-4 text-xs">
-                <div className="font-mono text-primary uppercase tracking-wider mb-2">Data Unavailable</div>
-                <p className="text-muted-foreground leading-relaxed">
-                  No reliable free/public source for earnings, dividend, and split dates is currently wired into this build.
-                  Per PRD, we never fabricate event data. The events feed will be populated once an exchange-page or company-IR
-                  scraper provider is connected. In the meantime, individual stock <Link to="/terminal" className="text-primary underline">Analysis</Link> pages
-                  will display an earnings date if the upstream summary endpoint returns one.
-                </p>
-              </div>
+        {/* Filter bar */}
+        <div className="panel mt-4 p-3 flex flex-wrap items-center gap-2 text-xs font-mono">
+          <Seg
+            options={[
+              { k: "all", label: "All Universe" },
+              { k: "watchlist", label: `Watchlist (${watchlist.length})` },
+            ]}
+            value={scope}
+            onChange={(v) => setScope(v as "all" | "watchlist")}
+          />
+          <Divider />
+          <Seg
+            options={RANGES.map((r) => ({ k: r.key, label: r.label }))}
+            value={range}
+            onChange={(v) => setRange(v as RangeKey)}
+          />
+          <Divider />
+          <select
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+            className="bg-background border border-border rounded px-2 py-1 text-xs font-mono"
+          >
+            <option value="">All regions</option>
+            {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <input
+            type="search"
+            placeholder="Search ticker / name…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="bg-background border border-border rounded px-2 py-1 text-xs font-mono w-44"
+          />
+          <Divider />
+          {KINDS.map((k) => {
+            const on = kinds.has(k.key);
+            return (
+              <button
+                key={k.key}
+                onClick={() => toggleKind(k.key)}
+                className={`px-2 py-1 rounded border uppercase tracking-wider text-[10px] ${
+                  on ? k.tone : "border-border text-muted-foreground/60 line-through"
+                }`}
+              >
+                {k.label} · {counts[k.key]}
+              </button>
+            );
+          })}
+          <div className="ml-auto">
+            <button
+              onClick={() => refetch()}
+              className="px-2 py-1 border border-border rounded text-muted-foreground hover:text-primary hover:border-primary/40 uppercase tracking-wider text-[10px]"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        {/* States */}
+        {isLoading && (
+          <div className="panel p-10 text-center mt-4 font-mono text-sm text-primary animate-pulse">
+            Loading events for the universe…
+          </div>
+        )}
+        {isError && (
+          <div className="panel p-6 mt-4 text-center text-xs">
+            <div className="text-[color:var(--bear)] font-mono uppercase tracking-wider">Failed to load events</div>
+            <button onClick={() => refetch()} className="mt-2 px-3 py-1 border border-primary/40 text-primary rounded font-mono text-[10px]">
+              Retry
+            </button>
+          </div>
+        )}
+        {!isLoading && !isError && wlActive && watchlist.length === 0 && (
+          <EmptyWatchlist />
+        )}
+        {!isLoading && !isError && groups.length === 0 && !(wlActive && watchlist.length === 0) && (
+          <div className="panel p-10 text-center mt-4 text-sm text-muted-foreground">
+            No events in the selected window.
+            <div className="text-[10px] mt-1 text-muted-foreground/60 font-mono">
+              Try widening the date range or enabling more event types.
             </div>
           </div>
         )}
+
+        {/* Grouped event list */}
+        {!isLoading && !isError && groups.length > 0 && (
+          <div className="mt-4 space-y-3">
+            {groups.map(([date, evs]) => (
+              <DayGroup
+                key={date}
+                date={date}
+                events={evs}
+                watchlist={watchlist}
+                onAdd={(s) => addWatch([s])}
+                onRemove={removeWatch}
+                onOpen={(s) => navigate({ to: "/terminal", search: { t: s } as any })}
+              />
+            ))}
+          </div>
+        )}
+
         <Disclaimer />
       </main>
+    </div>
+  );
+}
+
+function Seg<T extends string>({ options, value, onChange }: {
+  options: { k: T; label: string }[]; value: T; onChange: (v: T) => void;
+}) {
+  return (
+    <div className="inline-flex border border-border rounded overflow-hidden">
+      {options.map((o) => (
+        <button
+          key={o.k}
+          onClick={() => onChange(o.k)}
+          className={`px-2.5 py-1 uppercase tracking-wider text-[10px] ${
+            value === o.k ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-primary"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Divider() {
+  return <span className="h-4 w-px bg-border" />;
+}
+
+function relativeDay(date: string): string {
+  const d = new Date(date); d.setUTCHours(0, 0, 0, 0);
+  const today = new Date(); today.setUTCHours(0, 0, 0, 0);
+  const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  if (diff < 7) return `In ${diff} days`;
+  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+
+function DayGroup({ date, events, watchlist, onAdd, onRemove, onOpen }: {
+  date: string;
+  events: CalendarEvent[];
+  watchlist: string[];
+  onAdd: (s: string) => void;
+  onRemove: (s: string) => void;
+  onOpen: (s: string) => void;
+}) {
+  const d = new Date(date);
+  const long = d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+  return (
+    <div className="panel">
+      <div className="panel-header flex items-center justify-between">
+        <span>{long}</span>
+        <span className="text-[10px] text-muted-foreground font-mono">
+          {relativeDay(date)} · {events.length} {events.length === 1 ? "event" : "events"}
+        </span>
+      </div>
+      <div className="divide-y divide-border">
+        {events.map((e, i) => {
+          const inWl = watchlist.includes(e.symbol);
+          const tone =
+            e.kind === "earnings" ? "text-primary"
+            : e.kind === "dividend" ? "text-[color:var(--bull)]"
+            : "text-[color:var(--bear)]";
+          return (
+            <div
+              key={`${e.symbol}-${e.kind}-${i}`}
+              className="px-3 py-2 flex items-center gap-3 hover:bg-primary/5 cursor-pointer"
+              onClick={() => onOpen(e.symbol)}
+            >
+              <span className={`font-mono text-[10px] uppercase tracking-wider w-20 ${tone}`}>{e.label}</span>
+              <span className="font-mono text-primary text-sm w-20">{e.symbol}</span>
+              <span className="text-sm truncate flex-1" title={e.name}>{e.name}</span>
+              <span className="text-[10px] text-muted-foreground font-mono w-12 text-right">{e.region}</span>
+              <span className="text-[10px] text-muted-foreground hidden md:inline truncate max-w-[160px]" title={e.sector}>
+                {e.sector}
+              </span>
+              {e.detail && (
+                <span className="text-[10px] font-mono text-muted-foreground hidden lg:inline">{e.detail}</span>
+              )}
+              <button
+                onClick={(ev) => { ev.stopPropagation(); inWl ? onRemove(e.symbol) : onAdd(e.symbol); }}
+                className={`font-mono text-[10px] px-2 py-1 rounded border ${
+                  inWl
+                    ? "border-[color:var(--bull)]/50 text-[color:var(--bull)]"
+                    : "border-border text-muted-foreground hover:text-primary hover:border-primary/40"
+                }`}
+              >
+                {inWl ? "★" : "+ Watch"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function EmptyWatchlist() {
+  return (
+    <div className="panel p-10 text-center mt-4">
+      <div className="font-mono text-xs text-muted-foreground uppercase tracking-wider">Watchlist is empty</div>
+      <p className="text-xs text-muted-foreground mt-2">
+        Add tickers from the <Link to="/" className="text-primary underline">Screener</Link> or <Link to="/terminal" className="text-primary underline">Terminal</Link> to track their events.
+      </p>
     </div>
   );
 }
