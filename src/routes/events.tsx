@@ -202,7 +202,7 @@ function EventsPage() {
                 watchlist={watchlist}
                 onAdd={(s) => addWatch([s])}
                 onRemove={removeWatch}
-                onOpen={(s) => navigate({ to: "/terminal", search: { t: s } as any })}
+                onOpen={(s) => navigate({ to: "/terminal/$symbol", params: { symbol: s } })}
               />
             ))}
           </div>

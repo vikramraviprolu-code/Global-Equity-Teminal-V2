@@ -286,7 +286,7 @@ function ScreenerPage() {
                 selected={selected} toggleSelect={toggleSelect}
                 expanded={expanded} toggleExpand={toggleExpand}
                 watchlist={watchlist} onAddOne={(s) => addWatch([s])} onRemoveOne={removeWatch}
-                onOpen={(s) => navigate({ to: "/terminal", search: { t: s } as any })}
+                onOpen={(s) => navigate({ to: "/terminal/$symbol", params: { symbol: s } })}
               />
               <Pager page={page} totalPages={totalPages} pageSize={filters.pageSize} total={sorted.length}
                 onPage={(p) => setFilters({ page: p })} onPageSize={(s) => setFilters({ pageSize: s, page: 1 })} />
@@ -297,7 +297,7 @@ function ScreenerPage() {
               <ResultsCards
                 rows={pageRows}
                 watchlist={watchlist} onAddOne={(s) => addWatch([s])} onRemoveOne={removeWatch}
-                onOpen={(s) => navigate({ to: "/terminal", search: { t: s } as any })}
+                onOpen={(s) => navigate({ to: "/terminal/$symbol", params: { symbol: s } })}
               />
               <Pager page={page} totalPages={totalPages} pageSize={filters.pageSize} total={sorted.length}
                 onPage={(p) => setFilters({ page: p })} onPageSize={(s) => setFilters({ pageSize: s, page: 1 })} />

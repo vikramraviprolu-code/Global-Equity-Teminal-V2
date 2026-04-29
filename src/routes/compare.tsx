@@ -140,7 +140,7 @@ function ComparePage() {
                   {rows.map((r) => (
                     <th key={r.symbol} className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Link to="/terminal" search={{ t: r.symbol } as any} className="text-primary hover:underline">{r.symbol}</Link>
+                        <Link to="/terminal/$symbol" params={{ symbol: r.symbol }} className="text-primary hover:underline">{r.symbol}</Link>
                         <button onClick={() => onRemove(r.symbol)} className="text-muted-foreground hover:text-destructive font-mono text-[10px]">✕</button>
                       </div>
                       <div className="font-normal text-[10px] text-muted-foreground normal-case tracking-normal mt-0.5">{r.name}</div>

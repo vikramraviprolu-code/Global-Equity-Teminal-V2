@@ -84,7 +84,7 @@ function DataQualityPage() {
                         <td className="text-muted-foreground">{r.source}{r.isMock && <span className="text-primary"> (mock)</span>}</td>
                         <td className="num">{r.scores.confidence}</td>
                         <td className="text-muted-foreground text-xs">{r.scores.confidenceReasons.join(" · ")}</td>
-                        <td><Link to="/terminal" search={{ t: r.symbol } as any} className="font-mono text-[10px] text-primary border border-primary/40 px-2 py-1 rounded hover:bg-primary/10">Analyze</Link></td>
+                        <td><Link to="/terminal/$symbol" params={{ symbol: r.symbol }} className="font-mono text-[10px] text-primary border border-primary/40 px-2 py-1 rounded hover:bg-primary/10">Analyze</Link></td>
                       </tr>
                     ))}
                   </tbody>
