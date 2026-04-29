@@ -13,7 +13,7 @@ const STATIC_PATHS = [
   "/settings",
 ];
 
-export const Route = createFileRoute("/api/sitemap.xml")({
+export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async () => {

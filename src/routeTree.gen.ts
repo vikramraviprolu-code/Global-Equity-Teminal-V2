@@ -18,6 +18,8 @@ import { Route as DataQualityRouteImport } from './routes/data-quality'
 import { Route as CompareRouteImport } from './routes/compare'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TerminalSymbolRouteImport } from './routes/terminal.$symbol'
+import { Route as ApiSitemapDotxmlRouteImport } from './routes/api/sitemap[.]xml'
+import { Route as ApiRobotsDottxtRouteImport } from './routes/api/robots[.]txt'
 
 const WatchlistRoute = WatchlistRouteImport.update({
   id: '/watchlist',
@@ -64,6 +66,16 @@ const TerminalSymbolRoute = TerminalSymbolRouteImport.update({
   path: '/$symbol',
   getParentRoute: () => TerminalRoute,
 } as any)
+const ApiSitemapDotxmlRoute = ApiSitemapDotxmlRouteImport.update({
+  id: '/api/sitemap.xml',
+  path: '/api/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRobotsDottxtRoute = ApiRobotsDottxtRouteImport.update({
+  id: '/api/robots.txt',
+  path: '/api/robots.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -74,6 +86,8 @@ export interface FileRoutesByFullPath {
   '/sources': typeof SourcesRoute
   '/terminal': typeof TerminalRouteWithChildren
   '/watchlist': typeof WatchlistRoute
+  '/api/robots.txt': typeof ApiRobotsDottxtRoute
+  '/api/sitemap.xml': typeof ApiSitemapDotxmlRoute
   '/terminal/$symbol': typeof TerminalSymbolRoute
 }
 export interface FileRoutesByTo {
@@ -85,6 +99,8 @@ export interface FileRoutesByTo {
   '/sources': typeof SourcesRoute
   '/terminal': typeof TerminalRouteWithChildren
   '/watchlist': typeof WatchlistRoute
+  '/api/robots.txt': typeof ApiRobotsDottxtRoute
+  '/api/sitemap.xml': typeof ApiSitemapDotxmlRoute
   '/terminal/$symbol': typeof TerminalSymbolRoute
 }
 export interface FileRoutesById {
@@ -97,6 +113,8 @@ export interface FileRoutesById {
   '/sources': typeof SourcesRoute
   '/terminal': typeof TerminalRouteWithChildren
   '/watchlist': typeof WatchlistRoute
+  '/api/robots.txt': typeof ApiRobotsDottxtRoute
+  '/api/sitemap.xml': typeof ApiSitemapDotxmlRoute
   '/terminal/$symbol': typeof TerminalSymbolRoute
 }
 export interface FileRouteTypes {
@@ -110,6 +128,8 @@ export interface FileRouteTypes {
     | '/sources'
     | '/terminal'
     | '/watchlist'
+    | '/api/robots.txt'
+    | '/api/sitemap.xml'
     | '/terminal/$symbol'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -121,6 +141,8 @@ export interface FileRouteTypes {
     | '/sources'
     | '/terminal'
     | '/watchlist'
+    | '/api/robots.txt'
+    | '/api/sitemap.xml'
     | '/terminal/$symbol'
   id:
     | '__root__'
@@ -132,6 +154,8 @@ export interface FileRouteTypes {
     | '/sources'
     | '/terminal'
     | '/watchlist'
+    | '/api/robots.txt'
+    | '/api/sitemap.xml'
     | '/terminal/$symbol'
   fileRoutesById: FileRoutesById
 }
@@ -144,6 +168,8 @@ export interface RootRouteChildren {
   SourcesRoute: typeof SourcesRoute
   TerminalRoute: typeof TerminalRouteWithChildren
   WatchlistRoute: typeof WatchlistRoute
+  ApiRobotsDottxtRoute: typeof ApiRobotsDottxtRoute
+  ApiSitemapDotxmlRoute: typeof ApiSitemapDotxmlRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -211,6 +237,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TerminalSymbolRouteImport
       parentRoute: typeof TerminalRoute
     }
+    '/api/sitemap.xml': {
+      id: '/api/sitemap.xml'
+      path: '/api/sitemap.xml'
+      fullPath: '/api/sitemap.xml'
+      preLoaderRoute: typeof ApiSitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/robots.txt': {
+      id: '/api/robots.txt'
+      path: '/api/robots.txt'
+      fullPath: '/api/robots.txt'
+      preLoaderRoute: typeof ApiRobotsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -235,6 +275,8 @@ const rootRouteChildren: RootRouteChildren = {
   SourcesRoute: SourcesRoute,
   TerminalRoute: TerminalRouteWithChildren,
   WatchlistRoute: WatchlistRoute,
+  ApiRobotsDottxtRoute: ApiRobotsDottxtRoute,
+  ApiSitemapDotxmlRoute: ApiSitemapDotxmlRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
