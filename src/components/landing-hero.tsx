@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import type { ScoredRow } from "@/lib/scores";
-import { fmtPrice, fmtPriceDisplay, fmtPct, colorFor } from "@/lib/format";
+import { fmtPriceDisplay, fmtPct, colorFor } from "@/lib/format";
 import { useDisplayCurrency } from "@/hooks/use-display-currency";
 
 type Meta = { retrievedAt: string; total: number; mockCount: number; liveCount: number };
