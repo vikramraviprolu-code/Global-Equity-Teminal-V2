@@ -5,7 +5,7 @@ import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { fetchUniverse } from "@/server/screen.functions";
 import { scoreAll, scoreRow, type ScoredRow } from "@/lib/scores";
-import { fmtNum, fmtPct, fmtMcapUsd, fmtPrice, fmtPriceDisplay, fmtVol, colorFor } from "@/lib/format";
+import { fmtNum, fmtPct, fmtMcapUsd, fmtPriceDisplay, fmtVol, colorFor } from "@/lib/format";
 import { useDisplayCurrency } from "@/hooks/use-display-currency";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { SiteNav } from "@/components/site-nav";

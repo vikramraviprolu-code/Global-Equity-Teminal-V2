@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { z } from "zod";
 import { fetchUniverse } from "@/server/screen.functions";
 import { scoreAll } from "@/lib/scores";
-import { fmtNum, fmtPct, fmtMcapUsd, fmtPrice, fmtPriceDisplay, fmtVol, colorFor } from "@/lib/format";
+import { fmtNum, fmtPct, fmtMcapUsd, fmtPriceDisplay, fmtVol, colorFor } from "@/lib/format";
 import { useDisplayCurrency } from "@/hooks/use-display-currency";
 import { SiteNav, Disclaimer } from "@/components/site-nav";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend, Tooltip as RTooltip } from "recharts";
