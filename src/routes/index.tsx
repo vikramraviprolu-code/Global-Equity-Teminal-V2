@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useState, useEffect } from "react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { fetchUniverse } from "@/server/screen.functions";
@@ -12,6 +12,7 @@ import { SiteNav } from "@/components/site-nav";
 import { SectorHeatmap } from "@/components/sector-heatmap";
 import { LandingHero } from "@/components/landing-hero";
 import { exportRowsCsv, exportNodeAsPng } from "@/lib/export";
+import { onAction } from "@/lib/action-bus";
 import { useRef } from "react";
 
 const SORTABLE_KEYS = ["symbol", "name", "sector", "price", "marketCapUsd", "pe", "pb", "dividendYield", "pctFromLow", "perf5d", "rsi14", "value", "momentum", "quality", "risk", "confidence"] as const;
