@@ -111,7 +111,7 @@ function WatchlistPage() {
                 </thead>
                 <tbody>
                   {rows.map((r) => (
-                    <tr key={r.symbol} className="hover:bg-primary/5 cursor-pointer" onClick={() => navigate({ to: "/terminal", search: { t: r.symbol } as any })}>
+                    <tr key={r.symbol} className="hover:bg-primary/5 cursor-pointer" onClick={() => navigate({ to: "/terminal/$symbol", params: { symbol: r.symbol } })}>
                       <td className="text-primary font-mono">{r.symbol}</td>
                       <td>{r.name}</td>
                       <td className="text-muted-foreground">{r.region}</td>
