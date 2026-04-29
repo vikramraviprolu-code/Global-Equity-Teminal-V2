@@ -1,11 +1,46 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { z } from "zod";
+import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { fetchUniverse } from "@/server/screen.functions";
-import { scoreAll, type ScoredRow } from "@/lib/scores";
+import { scoreAll, scoreRow, type ScoredRow } from "@/lib/scores";
 import { fmtNum, fmtPct, fmtMcapUsd, fmtPrice, fmtVol, colorFor } from "@/lib/format";
 import { useWatchlist } from "@/hooks/use-watchlist";
 import { SiteNav } from "@/components/site-nav";
+
+const SORTABLE_KEYS = ["symbol", "name", "sector", "price", "marketCapUsd", "pe", "pb", "dividendYield", "pctFromLow", "perf5d", "rsi14", "value", "momentum", "quality", "risk", "confidence"] as const;
+type SortKey = (typeof SORTABLE_KEYS)[number];
+
+const MA_CROSS_OPTIONS = ["any", "golden", "death", "above50", "above200"] as const;
+type MaCross = (typeof MA_CROSS_OPTIONS)[number];
+
+const searchSchema = z.object({
+  preset: fallback(z.enum(["all", "valueLow", "momentum", "quality", "oversold", "breakout", "reliable"]), "all").default("all"),
+  region: fallback(z.string(), "").default(""),
+  sector: fallback(z.string(), "").default(""),
+  q: fallback(z.string(), "").default(""),
+  minMcap: fallback(z.number(), 0).default(0),
+  minPrice: fallback(z.number(), 0).default(0),
+  minVolume: fallback(z.number(), 0).default(0),
+  peMax: fallback(z.number().nullable(), null).default(null),
+  pbMax: fallback(z.number().nullable(), null).default(null),
+  dyMin: fallback(z.number().nullable(), null).default(null),
+  rsiMin: fallback(z.number(), 0).default(0),
+  rsiMax: fallback(z.number(), 100).default(100),
+  near52wLowPct: fallback(z.number().nullable(), null).default(null),
+  rocMin: fallback(z.number().nullable(), null).default(null),
+  maCross: fallback(z.enum(MA_CROSS_OPTIONS), "any").default("any"),
+  minConfidence: fallback(z.number(), 0).default(0),
+  excludeMock: fallback(z.boolean(), false).default(false),
+  sortBy: fallback(z.enum(SORTABLE_KEYS), "marketCapUsd").default("marketCapUsd"),
+  sortDir: fallback(z.enum(["asc", "desc"]), "desc").default("desc"),
+  page: fallback(z.number().int().min(1), 1).default(1),
+  pageSize: fallback(z.number().int().min(10).max(200), 50).default(50),
+  view: fallback(z.enum(["table", "chart"]), "table").default("table"),
+});
+
+type Filters = z.infer<typeof searchSchema>;
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -16,6 +51,7 @@ export const Route = createFileRoute("/")({
       { property: "og:description", content: "A professional stock discovery and analysis platform. Screen, score, and analyse global equities with evidence-based research." },
     ],
   }),
+  validateSearch: zodValidator(searchSchema),
   loader: ({ context }) => {
     context.queryClient.prefetchQuery({
       queryKey: ["universe"],
@@ -27,7 +63,7 @@ export const Route = createFileRoute("/")({
 });
 
 // ---------------- presets ----------------
-type PresetId = "all" | "valueLow" | "momentum" | "quality" | "oversold" | "breakout" | "reliable";
+type PresetId = Filters["preset"];
 const PRESETS: { id: PresetId; label: string; desc: string }[] = [
   { id: "all", label: "All Stocks", desc: "Entire curated universe with no extra filters" },
   { id: "valueLow", label: "Value Near Lows", desc: "P/E ≤ 10, within 10% of 52W low, large cap, medium+ confidence" },
@@ -38,38 +74,18 @@ const PRESETS: { id: PresetId; label: string; desc: string }[] = [
   { id: "reliable", label: "Data Reliable Only", desc: "High data confidence (≥85)" },
 ];
 
-// ---------------- filter type ----------------
-type Filters = {
-  preset: PresetId;
-  region: string; // "" = all
-  sector: string;
-  search: string;
-  minMcap: number; // USD
-  minPrice: number;
-  minVolume: number;
-  peMax: number | null;
-  rsiMin: number;
-  rsiMax: number;
-  near52wLowPct: number | null; // null=disabled, else max %
-  minConfidence: number;
-  excludeMock: boolean;
-};
-const DEFAULT_FILTERS: Filters = {
-  preset: "all", region: "", sector: "", search: "",
-  minMcap: 0, minPrice: 0, minVolume: 0,
-  peMax: null, rsiMin: 0, rsiMax: 100, near52wLowPct: null,
-  minConfidence: 0, excludeMock: false,
-};
+const DEFAULT_FILTERS: Filters = searchSchema.parse({});
 
-function applyPreset(p: PresetId, base: Filters): Filters {
+function applyPreset(p: PresetId): Filters {
+  const base: Filters = { ...DEFAULT_FILTERS, preset: p };
   switch (p) {
-    case "valueLow": return { ...base, preset: p, peMax: 10, near52wLowPct: 10, minMcap: 2e9, minConfidence: 60 };
-    case "momentum": return { ...base, preset: p, rsiMin: 40, rsiMax: 70, peMax: null, near52wLowPct: null };
-    case "quality":  return { ...base, preset: p, minMcap: 10e9, minConfidence: 60 };
-    case "oversold": return { ...base, preset: p, rsiMin: 0, rsiMax: 35, near52wLowPct: 20 };
-    case "breakout": return { ...base, preset: p, rsiMin: 50, rsiMax: 75 };
-    case "reliable": return { ...base, preset: p, minConfidence: 85 };
-    default:         return { ...DEFAULT_FILTERS, preset: "all" };
+    case "valueLow": return { ...base, peMax: 10, near52wLowPct: 10, minMcap: 2e9, minConfidence: 60 };
+    case "momentum": return { ...base, rsiMin: 40, rsiMax: 70, rocMin: 0, maCross: "above50" };
+    case "quality":  return { ...base, minMcap: 10e9, minConfidence: 60 };
+    case "oversold": return { ...base, rsiMin: 0, rsiMax: 35, near52wLowPct: 20 };
+    case "breakout": return { ...base, rsiMin: 50, rsiMax: 75, maCross: "above50", rocMin: 0 };
+    case "reliable": return { ...base, minConfidence: 85, excludeMock: true };
+    default:         return base;
   }
 }
 
