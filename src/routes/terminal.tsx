@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { analyzeTicker, searchTickers } from "@/server/analyze";
 import { fmtNum, fmtPct, fmtMcap, fmtMcapUsd, fmtVol, fmtPrice, colorFor, trendArrow, vsMA } from "@/lib/format";
+import { SiteNav, Disclaimer as SharedDisclaimer } from "@/components/site-nav";
+import { PriceChart } from "@/components/price-chart";
+import { useWatchlist } from "@/hooks/use-watchlist";
 
 export const Route = createFileRoute("/terminal")({
   validateSearch: (s: Record<string, unknown>) => z.object({ t: z.string().optional() }).parse(s),
@@ -24,7 +27,7 @@ type Match = SearchResult["matches"][number];
 function TerminalPage() {
   const { t: initialTicker } = Route.useSearch();
   const [query, setQuery] = useState(initialTicker ?? "");
-  const [tab, setTab] = useState<"overview" | "value" | "momentum" | "cross" | "final">("overview");
+  const [tab, setTab] = useState<"overview" | "chart" | "scores" | "value" | "momentum" | "cross" | "final">("overview");
 
   const search = useMutation({ mutationFn: (q: string) => searchTickers({ data: { q } }) });
   const analyze = useMutation({ mutationFn: (t: string) => analyzeTicker({ data: { ticker: t } }) });
@@ -59,7 +62,8 @@ function TerminalPage() {
 
   return (
     <div className="min-h-screen">
-      <Header query={query} setQuery={setQuery} onSubmit={onSubmit} loading={search.isPending || analyze.isPending} />
+      <SiteNav />
+      <SubHeader query={query} setQuery={setQuery} onSubmit={onSubmit} loading={search.isPending || analyze.isPending} />
 
       <main className="max-w-[1400px] mx-auto px-4 py-6">
         {!search.data && !analyze.data && !search.isPending && !analyze.isPending && <EmptyState />}
@@ -78,12 +82,14 @@ function TerminalPage() {
             <Tabs tab={tab} setTab={setTab} />
             <div className="mt-4">
               {tab === "overview" && <OverviewSection r={result} />}
+              {tab === "chart" && <ChartSection r={result} />}
+              {tab === "scores" && <ScoresSection r={result} />}
               {tab === "value" && <ValueSection r={result} />}
               {tab === "momentum" && <MomentumSection r={result} />}
               {tab === "cross" && <CrossSection r={result} />}
               {tab === "final" && <FinalSection r={result} />}
             </div>
-            <Disclaimer />
+            <SharedDisclaimer />
           </>
         )}
       </main>
@@ -91,16 +97,11 @@ function TerminalPage() {
   );
 }
 
-function Header({ query, setQuery, onSubmit, loading }: { query: string; setQuery: (s: string) => void; onSubmit: (e: React.FormEvent) => void; loading: boolean }) {
+function SubHeader({ query, setQuery, onSubmit, loading }: { query: string; setQuery: (s: string) => void; onSubmit: (e: React.FormEvent) => void; loading: boolean }) {
   return (
-    <header className="border-b border-border bg-card sticky top-0 z-10">
-      <div className="max-w-[1400px] mx-auto px-4 py-3 flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-primary rounded-sm" />
-          <h1 className="font-mono text-sm tracking-widest text-primary">GLOBAL&nbsp;EQUITY&nbsp;TERMINAL</h1>
-          <span className="text-xs text-muted-foreground hidden sm:inline">v2.0 · FinImpulse</span>
-        </div>
-        <form onSubmit={onSubmit} className="flex items-center gap-2 flex-1 min-w-[280px] max-w-2xl ml-auto">
+    <div className="border-b border-border bg-card/50">
+      <div className="max-w-[1400px] mx-auto px-4 py-2">
+        <form onSubmit={onSubmit} className="flex items-center gap-2 max-w-3xl">
           <div className="flex items-center gap-2 flex-1 bg-input border border-border rounded px-3 py-1.5 focus-within:border-primary">
             <span className="text-xs text-muted-foreground font-mono">{">"}</span>
             <input
@@ -112,11 +113,11 @@ function Header({ query, setQuery, onSubmit, loading }: { query: string; setQuer
             />
           </div>
           <button type="submit" disabled={loading} className="bg-primary text-primary-foreground font-mono text-xs px-4 py-2 rounded hover:opacity-90 disabled:opacity-50 uppercase tracking-wider">
-            {loading ? "Running…" : "Search"}
+            {loading ? "Running…" : "Analyze"}
           </button>
         </form>
       </div>
-    </header>
+    </div>
   );
 }
 
