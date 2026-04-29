@@ -152,7 +152,7 @@ export function buildMockRow(u: {
   return {
     symbol: sym, name: u.name, exchange: u.exchange, country: u.country, region: u.region,
     currency: u.currency, sector: u.sector, industry: u.industry,
-    price, marketCap, marketCapUsd, avgVolume, pe,
+    price, marketCap, marketCapUsd, avgVolume, pe, pb, dividendYield,
     high52, low52,
     pctFromLow: +pctFromLow.toFixed(2), pctFromHigh: +pctFromHigh.toFixed(2),
     perf5d: +perf5d.toFixed(2), rsi14: +rsi14.toFixed(1),
