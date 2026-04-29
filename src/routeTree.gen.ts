@@ -11,6 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WatchlistRouteImport } from './routes/watchlist'
 import { Route as TerminalRouteImport } from './routes/terminal'
+import { Route as SourcesRouteImport } from './routes/sources'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as EventsRouteImport } from './routes/events'
+import { Route as DataQualityRouteImport } from './routes/data-quality'
+import { Route as CompareRouteImport } from './routes/compare'
 import { Route as IndexRouteImport } from './routes/index'
 
 const WatchlistRoute = WatchlistRouteImport.update({
@@ -23,6 +28,31 @@ const TerminalRoute = TerminalRouteImport.update({
   path: '/terminal',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SourcesRoute = SourcesRouteImport.update({
+  id: '/sources',
+  path: '/sources',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventsRoute = EventsRouteImport.update({
+  id: '/events',
+  path: '/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DataQualityRoute = DataQualityRouteImport.update({
+  id: '/data-quality',
+  path: '/data-quality',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompareRoute = CompareRouteImport.update({
+  id: '/compare',
+  path: '/compare',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -31,30 +61,75 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/compare': typeof CompareRoute
+  '/data-quality': typeof DataQualityRoute
+  '/events': typeof EventsRoute
+  '/settings': typeof SettingsRoute
+  '/sources': typeof SourcesRoute
   '/terminal': typeof TerminalRoute
   '/watchlist': typeof WatchlistRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/compare': typeof CompareRoute
+  '/data-quality': typeof DataQualityRoute
+  '/events': typeof EventsRoute
+  '/settings': typeof SettingsRoute
+  '/sources': typeof SourcesRoute
   '/terminal': typeof TerminalRoute
   '/watchlist': typeof WatchlistRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/compare': typeof CompareRoute
+  '/data-quality': typeof DataQualityRoute
+  '/events': typeof EventsRoute
+  '/settings': typeof SettingsRoute
+  '/sources': typeof SourcesRoute
   '/terminal': typeof TerminalRoute
   '/watchlist': typeof WatchlistRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/terminal' | '/watchlist'
+  fullPaths:
+    | '/'
+    | '/compare'
+    | '/data-quality'
+    | '/events'
+    | '/settings'
+    | '/sources'
+    | '/terminal'
+    | '/watchlist'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/terminal' | '/watchlist'
-  id: '__root__' | '/' | '/terminal' | '/watchlist'
+  to:
+    | '/'
+    | '/compare'
+    | '/data-quality'
+    | '/events'
+    | '/settings'
+    | '/sources'
+    | '/terminal'
+    | '/watchlist'
+  id:
+    | '__root__'
+    | '/'
+    | '/compare'
+    | '/data-quality'
+    | '/events'
+    | '/settings'
+    | '/sources'
+    | '/terminal'
+    | '/watchlist'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CompareRoute: typeof CompareRoute
+  DataQualityRoute: typeof DataQualityRoute
+  EventsRoute: typeof EventsRoute
+  SettingsRoute: typeof SettingsRoute
+  SourcesRoute: typeof SourcesRoute
   TerminalRoute: typeof TerminalRoute
   WatchlistRoute: typeof WatchlistRoute
 }
@@ -75,6 +150,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TerminalRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sources': {
+      id: '/sources'
+      path: '/sources'
+      fullPath: '/sources'
+      preLoaderRoute: typeof SourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/events': {
+      id: '/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof EventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/data-quality': {
+      id: '/data-quality'
+      path: '/data-quality'
+      fullPath: '/data-quality'
+      preLoaderRoute: typeof DataQualityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compare': {
+      id: '/compare'
+      path: '/compare'
+      fullPath: '/compare'
+      preLoaderRoute: typeof CompareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -87,6 +197,11 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CompareRoute: CompareRoute,
+  DataQualityRoute: DataQualityRoute,
+  EventsRoute: EventsRoute,
+  SettingsRoute: SettingsRoute,
+  SourcesRoute: SourcesRoute,
   TerminalRoute: TerminalRoute,
   WatchlistRoute: WatchlistRoute,
 }

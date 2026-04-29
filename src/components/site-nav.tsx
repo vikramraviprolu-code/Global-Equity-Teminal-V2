@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
-const NAV = [
+type NavItem = { to: string; label: string; exact?: boolean };
+const NAV: NavItem[] = [
   { to: "/", label: "Screener", exact: true },
   { to: "/terminal", label: "Analysis" },
   { to: "/compare", label: "Compare" },
@@ -9,7 +10,7 @@ const NAV = [
   { to: "/data-quality", label: "Data Quality" },
   { to: "/sources", label: "Sources" },
   { to: "/settings", label: "Settings" },
-] as const;
+];
 
 export function SiteNav({ right }: { right?: React.ReactNode }) {
   return (
