@@ -215,32 +215,6 @@ function ScreenerPage() {
   );
 }
 
-function NavBar({ onRefresh, refreshing }: { onRefresh: () => void; refreshing: boolean }) {
-  return (
-    <header className="border-b border-border bg-card sticky top-0 z-20 backdrop-blur supports-[backdrop-filter]:bg-card/85">
-      <div className="max-w-[1400px] mx-auto px-4 py-3 flex items-center gap-4 flex-wrap">
-        <Link to="/" className="flex items-center gap-2 hover:opacity-90">
-          <div className="w-2 h-2 bg-primary rounded-sm" />
-          <span className="font-mono text-sm tracking-widest text-primary">GLOBAL&nbsp;EQUITY&nbsp;TERMINAL</span>
-          <span className="font-mono text-[10px] text-muted-foreground tracking-widest">v2</span>
-        </Link>
-        <nav className="ml-auto flex items-center gap-1 text-xs font-mono uppercase tracking-wider">
-          <Link to="/" activeProps={{ className: "text-primary" }} activeOptions={{ exact: true }}
-            className="px-3 py-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground">Screener</Link>
-          <Link to="/terminal" activeProps={{ className: "text-primary" }}
-            className="px-3 py-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground">Stock Analysis</Link>
-          <Link to="/watchlist" activeProps={{ className: "text-primary" }}
-            className="px-3 py-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground">Watchlist</Link>
-          <button onClick={onRefresh} disabled={refreshing}
-            className="ml-2 bg-primary text-primary-foreground px-3 py-1.5 rounded hover:opacity-90 disabled:opacity-50">
-            {refreshing ? "Refreshing…" : "Refresh"}
-          </button>
-        </nav>
-      </div>
-    </header>
-  );
-}
-
 function Hero({ meta }: { meta?: { retrievedAt: string; total: number; mockCount: number; liveCount: number } }) {
   return (
     <section className="border-b border-border bg-card/30">
