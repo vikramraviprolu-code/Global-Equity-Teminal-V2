@@ -271,13 +271,32 @@ function SnapshotBar({ r }: { r: Success }) {
         </div>
         <SnapshotStats t={t} />
       </div>
-      </div>
       <div className="px-4 py-2 flex flex-wrap gap-3 text-xs font-mono">
         <Pill ok={t.passesGlobal} label={`Liquidity (${t.region}): ${t.passesGlobal ? "PASS" : "FAIL"}`} />
         <Pill ok={t.passesValue} label={`Value Screen: ${t.passesValue ? "PASS" : "FAIL"}`} />
         <Pill ok={t.recommendation.rec === "Buy"} warn={t.recommendation.rec === "Watch"} label={`Rec: ${t.recommendation.rec}`} />
         <span className="text-muted-foreground">Outlook: <span className="text-foreground">{t.outlook}</span> · Conf: {t.confidence}</span>
       </div>
+    </div>
+  );
+}
+
+function SnapshotStats({ t }: { t: any }) {
+  const [mode] = useDisplayCurrency();
+  return (
+    <div className="ml-auto flex items-baseline gap-6 font-mono">
+      <Stat
+        label="PRICE"
+        value={fmtPriceDisplay(t.price, t.currency, t.marketCap, t.marketCapUsd, mode)}
+        sub={mode === "USD" && (t.currency ?? "").toUpperCase() !== "USD" ? fmtPrice(t.price, t.currency) : undefined}
+      />
+      <Stat label="5D" value={fmtPct(t.perf5d)} cls={colorFor(t.perf5d)} />
+      <Stat label="RSI" value={fmtNum(t.rsi14, 1)} cls={t.rsi14 == null ? "" : t.rsi14 > 70 ? "text-[color:var(--bear)]" : t.rsi14 < 30 ? "text-[color:var(--bull)]" : ""} />
+      <Stat
+        label="MCAP"
+        value={fmtMcapDisplay(t.marketCap, t.marketCapUsd, t.currency, mode)}
+        sub={mode === "local" && t.marketCapUsd ? fmtMcapUsd(t.marketCapUsd) : undefined}
+      />
     </div>
   );
 }
