@@ -1,9 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { analyzeTicker, searchTickers } from "@/server/analyze";
 import { fmtNum, fmtPct, fmtMcap, fmtMcapUsd, fmtVol, fmtPrice, colorFor, trendArrow, vsMA } from "@/lib/format";
+import { SiteNav, Disclaimer as SharedDisclaimer } from "@/components/site-nav";
+import { PriceChart } from "@/components/price-chart";
+import { useWatchlist } from "@/hooks/use-watchlist";
+import { scoreRow } from "@/lib/scores";
 
 export const Route = createFileRoute("/terminal")({
   validateSearch: (s: Record<string, unknown>) => z.object({ t: z.string().optional() }).parse(s),
@@ -24,7 +28,7 @@ type Match = SearchResult["matches"][number];
 function TerminalPage() {
   const { t: initialTicker } = Route.useSearch();
   const [query, setQuery] = useState(initialTicker ?? "");
-  const [tab, setTab] = useState<"overview" | "value" | "momentum" | "cross" | "final">("overview");
+  const [tab, setTab] = useState<"overview" | "chart" | "scores" | "value" | "momentum" | "cross" | "final">("overview");
 
   const search = useMutation({ mutationFn: (q: string) => searchTickers({ data: { q } }) });
   const analyze = useMutation({ mutationFn: (t: string) => analyzeTicker({ data: { ticker: t } }) });
@@ -59,7 +63,8 @@ function TerminalPage() {
 
   return (
     <div className="min-h-screen">
-      <Header query={query} setQuery={setQuery} onSubmit={onSubmit} loading={search.isPending || analyze.isPending} />
+      <SiteNav />
+      <SubHeader query={query} setQuery={setQuery} onSubmit={onSubmit} loading={search.isPending || analyze.isPending} />
 
       <main className="max-w-[1400px] mx-auto px-4 py-6">
         {!search.data && !analyze.data && !search.isPending && !analyze.isPending && <EmptyState />}
@@ -78,12 +83,14 @@ function TerminalPage() {
             <Tabs tab={tab} setTab={setTab} />
             <div className="mt-4">
               {tab === "overview" && <OverviewSection r={result} />}
+              {tab === "chart" && <ChartSection r={result} />}
+              {tab === "scores" && <ScoresSection r={result} />}
               {tab === "value" && <ValueSection r={result} />}
               {tab === "momentum" && <MomentumSection r={result} />}
               {tab === "cross" && <CrossSection r={result} />}
               {tab === "final" && <FinalSection r={result} />}
             </div>
-            <Disclaimer />
+            <SharedDisclaimer />
           </>
         )}
       </main>
@@ -91,16 +98,11 @@ function TerminalPage() {
   );
 }
 
-function Header({ query, setQuery, onSubmit, loading }: { query: string; setQuery: (s: string) => void; onSubmit: (e: React.FormEvent) => void; loading: boolean }) {
+function SubHeader({ query, setQuery, onSubmit, loading }: { query: string; setQuery: (s: string) => void; onSubmit: (e: React.FormEvent) => void; loading: boolean }) {
   return (
-    <header className="border-b border-border bg-card sticky top-0 z-10">
-      <div className="max-w-[1400px] mx-auto px-4 py-3 flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-primary rounded-sm" />
-          <h1 className="font-mono text-sm tracking-widest text-primary">GLOBAL&nbsp;EQUITY&nbsp;TERMINAL</h1>
-          <span className="text-xs text-muted-foreground hidden sm:inline">v2.0 · FinImpulse</span>
-        </div>
-        <form onSubmit={onSubmit} className="flex items-center gap-2 flex-1 min-w-[280px] max-w-2xl ml-auto">
+    <div className="border-b border-border bg-card/50">
+      <div className="max-w-[1400px] mx-auto px-4 py-2">
+        <form onSubmit={onSubmit} className="flex items-center gap-2 max-w-3xl">
           <div className="flex items-center gap-2 flex-1 bg-input border border-border rounded px-3 py-1.5 focus-within:border-primary">
             <span className="text-xs text-muted-foreground font-mono">{">"}</span>
             <input
@@ -112,11 +114,11 @@ function Header({ query, setQuery, onSubmit, loading }: { query: string; setQuer
             />
           </div>
           <button type="submit" disabled={loading} className="bg-primary text-primary-foreground font-mono text-xs px-4 py-2 rounded hover:opacity-90 disabled:opacity-50 uppercase tracking-wider">
-            {loading ? "Running…" : "Search"}
+            {loading ? "Running…" : "Analyze"}
           </button>
         </form>
       </div>
-    </header>
+    </div>
   );
 }
 
@@ -229,6 +231,8 @@ function DisambiguationPanel({ matches, onPick, query }: { matches: Match[]; onP
 
 function SnapshotBar({ r }: { r: Success }) {
   const t = r.target;
+  const wl = useWatchlist();
+  const inList = wl.has(t.symbol);
   return (
     <div className="panel mb-4">
       <div className="p-4 flex flex-wrap items-baseline gap-x-6 gap-y-2 border-b border-border">
@@ -240,6 +244,12 @@ function SnapshotBar({ r }: { r: Success }) {
             <span className="text-[10px] font-mono uppercase border border-border rounded px-1.5 py-0.5 text-muted-foreground">
               {t.fullExchange ?? t.exchange ?? "—"} · {t.country ?? t.region} · {t.currency}
             </span>
+            <button
+              onClick={() => (inList ? wl.remove(t.symbol) : wl.add([t.symbol]))}
+              className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border transition-colors ${inList ? "border-primary text-primary bg-primary/10" : "border-border text-muted-foreground hover:text-foreground"}`}
+            >
+              {inList ? "★ In Watchlist" : "☆ Add to Watchlist"}
+            </button>
           </div>
         </div>
         <div className="ml-auto flex items-baseline gap-6 font-mono">
@@ -279,6 +289,8 @@ function Pill({ ok, warn, label }: { ok?: boolean; warn?: boolean; label: string
 function Tabs({ tab, setTab }: { tab: string; setTab: (t: any) => void }) {
   const tabs = [
     ["overview", "Overview"],
+    ["chart", "Chart"],
+    ["scores", "Scores"],
     ["value", "Value Screen"],
     ["momentum", "Momentum"],
     ["cross", "Cross-Analysis"],
@@ -615,10 +627,87 @@ function Thesis({ title, cls, children }: { title: string; cls: string; children
   );
 }
 
-function Disclaimer() {
+// ---------------- Chart Section ----------------
+function ChartSection({ r }: { r: Success }) {
+  const t = r.target;
   return (
-    <p className="mt-8 text-[11px] text-muted-foreground border-t border-border pt-4 max-w-3xl mx-auto text-center leading-relaxed">
-      This analysis is for informational purposes only and is not financial advice. Investors should conduct their own research or consult a qualified financial advisor before making investment decisions. Data provided by FinImpulse. Cross-market price comparisons are avoided; market cap is normalized to USD where available.
-    </p>
+    <div className="space-y-4">
+      <PriceChart
+        closes={t.closes ?? []}
+        ma20={t.ma20}
+        ma50={t.ma50}
+        ma200={t.ma200}
+        high52={t.high52}
+        low52={t.low52}
+        rsi={t.rsi14}
+        currency={t.currency}
+      />
+      <div className="panel">
+        <div className="panel-header">Technical Summary</div>
+        <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono">
+          <Indicator label="Price" value={fmtPrice(t.price, t.currency)} />
+          <Indicator label="52W Low" value={fmtPrice(t.low52, t.currency)} />
+          <Indicator label="52W High" value={fmtPrice(t.high52, t.currency)} />
+          <Indicator label="% From Low" value={fmtPct(t.pctFromLow)} />
+          <Indicator label="MA 20" value={fmtPrice(t.ma20, t.currency)} />
+          <Indicator label="MA 50" value={fmtPrice(t.ma50, t.currency)} />
+          <Indicator label="MA 200" value={fmtPrice(t.ma200, t.currency)} />
+          <Indicator label="RSI 14" value={`${fmtNum(t.rsi14, 1)} (${t.rsiLabel})`} />
+        </div>
+      </div>
+    </div>
   );
 }
+
+// ---------------- Scores Section ----------------
+function ScoresSection({ r }: { r: Success }) {
+  const t = r.target;
+  // Adapt StockMetrics to ScreenerRow-like shape for scoreRow
+  const scoreInput = useMemo(() => ({
+    symbol: t.symbol, name: t.companyName, exchange: t.exchange ?? "",
+    country: t.country ?? "", region: t.region, currency: t.currency,
+    sector: t.sector ?? "", industry: t.industry ?? "",
+    price: t.price, marketCap: t.marketCap, marketCapUsd: t.marketCapUsd,
+    avgVolume: t.avgVolume, pe: t.pe, high52: t.high52, low52: t.low52,
+    pctFromLow: t.pctFromLow, pctFromHigh: null,
+    perf5d: t.perf5d, rsi14: t.rsi14, roc14: t.roc14, roc21: t.roc21,
+    ma20: t.ma20, ma50: t.ma50, ma200: t.ma200,
+    closes: t.closes ?? [], isMock: false, source: "Finimpulse",
+    retrievedAt: new Date().toISOString(),
+  }), [t]);
+  const s = scoreRow(scoreInput as any);
+
+  const cards = [
+    { label: "Value", val: s.value, b: s.valueLabel, reasons: s.valueReasons, color: "var(--bull)" },
+    { label: "Momentum", val: s.momentum, b: s.momentumLabel, reasons: s.momentumReasons, color: "var(--primary)" },
+    { label: "Quality", val: s.quality, b: s.qualityLabel, reasons: s.qualityReasons, color: "var(--cyan)" },
+    { label: "Risk", val: s.risk, b: s.riskLabel, reasons: s.riskReasons, color: "var(--bear)" },
+    { label: "Confidence", val: s.confidence, b: s.confidenceLabel, reasons: s.confidenceReasons, color: "var(--primary)" },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {cards.map((c) => (
+        <div key={c.label} className="panel">
+          <div className="panel-header flex items-center justify-between">
+            <span>{c.label}</span>
+            <span className="text-xs text-muted-foreground">{c.b}</span>
+          </div>
+          <div className="p-4">
+            <div className="flex items-baseline gap-2">
+              <span className="font-mono text-3xl" style={{ color: c.color }}>{c.val}</span>
+              <span className="text-xs text-muted-foreground">/100</span>
+            </div>
+            <div className="mt-2 h-1.5 w-full bg-muted rounded overflow-hidden">
+              <div className="h-full" style={{ width: `${c.val}%`, background: c.color }} />
+            </div>
+            <ul className="mt-3 text-[11px] text-muted-foreground space-y-1 list-disc pl-4">
+              {c.reasons.slice(0, 5).map((r, i) => <li key={i}>{r}</li>)}
+            </ul>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+

@@ -163,6 +163,7 @@ export type StockMetrics = Listing & {
   earningsDate: string | null;
   dataMissing: string[];
   filter: Filter;
+  closes: number[];
 };
 
 function isoDateBack(d: number) { const x = new Date(); x.setUTCDate(x.getUTCDate() - d); return x.toISOString().slice(0, 10); }
@@ -255,6 +256,7 @@ async function fetchMetrics(symbol: string, prefetched?: any): Promise<StockMetr
     earningsDate: summary?.earnings_date ?? null,
     dataMissing: missing,
     filter,
+    closes: closes.slice(-260),
   };
 }
 
