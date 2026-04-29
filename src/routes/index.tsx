@@ -5,6 +5,7 @@ import { fetchUniverse } from "@/server/screen.functions";
 import { scoreAll, type ScoredRow } from "@/lib/scores";
 import { fmtNum, fmtPct, fmtMcapUsd, fmtPrice, fmtVol, colorFor } from "@/lib/format";
 import { useWatchlist } from "@/hooks/use-watchlist";
+import { SiteNav } from "@/components/site-nav";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -160,7 +161,7 @@ function ScreenerPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <NavBar onRefresh={() => refetch()} refreshing={isFetching} />
+      <SiteNav right={<button onClick={() => refetch()} disabled={isFetching} className="bg-primary text-primary-foreground px-3 py-1.5 rounded hover:opacity-90 disabled:opacity-50">{isFetching ? "Refreshing…" : "Refresh"}</button>} />
       <main className="flex-1">
         <Hero meta={data?.meta} />
         <PresetBar current={filters.preset} onPick={onPickPreset} />
