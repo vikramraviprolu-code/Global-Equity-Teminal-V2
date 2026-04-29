@@ -10,6 +10,7 @@ import { useWatchlist } from "@/hooks/use-watchlist";
 import { scoreRow } from "@/lib/scores";
 
 export const Route = createFileRoute("/terminal")({
+  codeSplitGroupings: [["component"]],
   validateSearch: (s: Record<string, unknown>) => z.object({ t: z.string().optional() }).parse(s),
   head: () => ({
     meta: [
