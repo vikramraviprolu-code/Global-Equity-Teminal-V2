@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { fetchUniverse } from "@/server/screen.functions";
@@ -554,88 +554,142 @@ function EmptyState({ onReset }: { onReset: () => void }) {
 }
 
 // ---------------- table view ----------------
-function ResultsTable({ rows, sortBy, sortDir, onSort, selected, toggleSelect, watchlist, onAddOne, onRemoveOne, onOpen }: {
+function ResultsTable({ rows, columns, sortBy, sortDir, onSort, selected, toggleSelect, expanded, toggleExpand, watchlist, onAddOne, onRemoveOne, onOpen }: {
   rows: ScoredRow[];
+  columns: Set<ColumnKey>;
   sortBy: any; sortDir: "asc" | "desc"; onSort: (k: any) => void;
   selected: Set<string>; toggleSelect: (s: string) => void;
+  expanded: Set<string>; toggleExpand: (s: string) => void;
   watchlist: string[]; onAddOne: (s: string) => void; onRemoveOne: (s: string) => void;
   onOpen: (s: string) => void;
 }) {
-  const Th = ({ k, label, num }: { k: string; label: string; num?: boolean }) => (
-    <th className={num ? "text-right" : "text-left"}>
-      <button onClick={() => onSort(k)} className="font-medium hover:text-primary inline-flex items-center gap-1">
-        {label}
-        {sortBy === k && <span className="text-primary">{sortDir === "asc" ? "▲" : "▼"}</span>}
-      </button>
-    </th>
-  );
+  const has = (k: ColumnKey) => columns.has(k);
+  const Th = ({ k, label, num, colKey }: { k: string; label: string; num?: boolean; colKey?: ColumnKey }) => {
+    if (colKey && !has(colKey)) return null;
+    return (
+      <th className={num ? "text-right" : "text-left"}>
+        <button onClick={() => onSort(k)} className="font-medium hover:text-primary inline-flex items-center gap-1">
+          {label}
+          {sortBy === k && <span className="text-primary">{sortDir === "asc" ? "▲" : "▼"}</span>}
+        </button>
+      </th>
+    );
+  };
+  // count visible columns for expanded-row colspan
+  const visibleCount = 3 /* checkbox + expand + watch */ + ALL_COLUMNS.filter((c) => has(c.key)).length;
   return (
     <div className="panel overflow-x-auto">
       <table className="term">
         <thead>
           <tr>
             <th></th>
-            <Th k="symbol" label="Ticker" />
-            <Th k="name" label="Company" />
-            <th>Region</th>
-            <Th k="sector" label="Sector" />
-            <Th k="price" label="Price" num />
-            <Th k="marketCapUsd" label="Mcap (USD)" num />
-            <Th k="pe" label="P/E" num />
-            <Th k="pctFromLow" label="From 52W Low" num />
-            <Th k="perf5d" label="5D %" num />
-            <Th k="rsi14" label="RSI" num />
-            <Th k="value" label="Value" num />
-            <Th k="momentum" label="Mom" num />
-            <Th k="quality" label="Qual" num />
-            <Th k="risk" label="Risk" num />
-            <Th k="confidence" label="Conf" num />
+            <th></th>
+            <Th k="symbol" label="Ticker" colKey="symbol" />
+            <Th k="name" label="Company" colKey="name" />
+            {has("region") && <th>Region</th>}
+            <Th k="sector" label="Sector" colKey="sector" />
+            <Th k="price" label="Price" num colKey="price" />
+            <Th k="marketCapUsd" label="Mcap (USD)" num colKey="marketCapUsd" />
+            <Th k="pe" label="P/E" num colKey="pe" />
+            <Th k="pb" label="P/B" num colKey="pb" />
+            <Th k="dividendYield" label="Div %" num colKey="dividendYield" />
+            <Th k="pctFromLow" label="From 52W Low" num colKey="pctFromLow" />
+            <Th k="perf5d" label="5D %" num colKey="perf5d" />
+            <Th k="rsi14" label="RSI" num colKey="rsi14" />
+            <Th k="value" label="Value" num colKey="value" />
+            <Th k="momentum" label="Mom" num colKey="momentum" />
+            <Th k="quality" label="Qual" num colKey="quality" />
+            <Th k="risk" label="Risk" num colKey="risk" />
+            <Th k="confidence" label="Conf" num colKey="confidence" />
             <th></th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => {
             const inWl = watchlist.includes(r.symbol);
+            const isOpen = expanded.has(r.symbol);
             return (
-              <tr key={r.symbol} className="hover:bg-primary/5 cursor-pointer" onClick={() => onOpen(r.symbol)}>
-                <td onClick={(e) => e.stopPropagation()}>
-                  <input type="checkbox" checked={selected.has(r.symbol)} onChange={() => toggleSelect(r.symbol)} />
-                </td>
-                <td className="text-primary font-mono">{r.symbol}</td>
-                <td className="max-w-[160px] truncate" title={r.name}>{r.name}</td>
-                <td className="text-muted-foreground">{r.region}</td>
-                <td className="text-muted-foreground max-w-[140px] truncate" title={r.sector}>{r.sector}</td>
-                <td className="num">{fmtPrice(r.price, r.currency)}</td>
-                <td className="num">{fmtMcapUsd(r.marketCapUsd)}</td>
-                <td className="num">{fmtNum(r.pe, 1)}</td>
-                <td className={`num ${(r.pctFromLow ?? 99) <= 15 ? "text-[color:var(--bull)]" : ""}`}>
-                  {r.pctFromLow == null ? "—" : `+${r.pctFromLow.toFixed(1)}%`}
-                </td>
-                <td className={`num ${colorFor(r.perf5d)}`}>{fmtPct(r.perf5d)}</td>
-                <td className={`num ${r.rsi14 == null ? "" : r.rsi14 > 70 ? "text-[color:var(--bear)]" : r.rsi14 < 30 ? "text-[color:var(--bull)]" : ""}`}>
-                  {fmtNum(r.rsi14, 0)}
-                </td>
-                <td className="num"><ScoreCell n={r.scores.value} /></td>
-                <td className="num"><ScoreCell n={r.scores.momentum} /></td>
-                <td className="num"><ScoreCell n={r.scores.quality} /></td>
-                <td className="num"><ScoreCell n={r.scores.risk} invert /></td>
-                <td className="num">
-                  <span className={`font-mono ${r.scores.confidence >= 85 ? "text-[color:var(--bull)]" : r.scores.confidence >= 60 ? "text-primary" : "text-[color:var(--bear)]"}`}>
-                    {r.scores.confidence}
-                  </span>
-                  {r.isMock && <div className="text-[9px] text-primary uppercase">mock</div>}
-                </td>
-                <td onClick={(e) => e.stopPropagation()}>
-                  <button onClick={() => inWl ? onRemoveOne(r.symbol) : onAddOne(r.symbol)}
-                    className={`font-mono text-[10px] px-2 py-1 rounded border ${inWl ? "border-[color:var(--bull)]/50 text-[color:var(--bull)]" : "border-border text-muted-foreground hover:text-primary hover:border-primary/40"}`}>
-                    {inWl ? "★" : "+ Watch"}
-                  </button>
-                </td>
-              </tr>
+              <Fragment key={r.symbol}>
+                <tr className="hover:bg-primary/5 cursor-pointer" onClick={() => onOpen(r.symbol)}>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selected.has(r.symbol)} onChange={() => toggleSelect(r.symbol)} />
+                  </td>
+                  <td onClick={(e) => { e.stopPropagation(); toggleExpand(r.symbol); }}>
+                    <button className="font-mono text-[10px] text-muted-foreground hover:text-primary w-5">
+                      {isOpen ? "▾" : "▸"}
+                    </button>
+                  </td>
+                  {has("symbol") && <td className="text-primary font-mono">{r.symbol}</td>}
+                  {has("name") && <td className="max-w-[160px] truncate" title={r.name}>{r.name}</td>}
+                  {has("region") && <td className="text-muted-foreground">{r.region}</td>}
+                  {has("sector") && <td className="text-muted-foreground max-w-[140px] truncate" title={r.sector}>{r.sector}</td>}
+                  {has("price") && <td className="num">{fmtPrice(r.price, r.currency)}</td>}
+                  {has("marketCapUsd") && <td className="num">{fmtMcapUsd(r.marketCapUsd)}</td>}
+                  {has("pe") && <td className="num">{fmtNum(r.pe, 1)}</td>}
+                  {has("pb") && <td className="num">{fmtNum(r.pb, 2)}</td>}
+                  {has("dividendYield") && <td className="num">{r.dividendYield == null ? "—" : `${r.dividendYield.toFixed(2)}%`}</td>}
+                  {has("pctFromLow") && (
+                    <td className={`num ${(r.pctFromLow ?? 99) <= 15 ? "text-[color:var(--bull)]" : ""}`}>
+                      {r.pctFromLow == null ? "—" : `+${r.pctFromLow.toFixed(1)}%`}
+                    </td>
+                  )}
+                  {has("perf5d") && <td className={`num ${colorFor(r.perf5d)}`}>{fmtPct(r.perf5d)}</td>}
+                  {has("rsi14") && (
+                    <td className={`num ${r.rsi14 == null ? "" : r.rsi14 > 70 ? "text-[color:var(--bear)]" : r.rsi14 < 30 ? "text-[color:var(--bull)]" : ""}`}>
+                      {fmtNum(r.rsi14, 0)}
+                    </td>
+                  )}
+                  {has("value") && <td className="num"><ScoreCell n={r.scores.value} /></td>}
+                  {has("momentum") && <td className="num"><ScoreCell n={r.scores.momentum} /></td>}
+                  {has("quality") && <td className="num"><ScoreCell n={r.scores.quality} /></td>}
+                  {has("risk") && <td className="num"><ScoreCell n={r.scores.risk} invert /></td>}
+                  {has("confidence") && (
+                    <td className="num">
+                      <span className={`font-mono ${r.scores.confidence >= 85 ? "text-[color:var(--bull)]" : r.scores.confidence >= 60 ? "text-primary" : "text-[color:var(--bear)]"}`}>
+                        {r.scores.confidence}
+                      </span>
+                      {r.isMock && <div className="text-[9px] text-primary uppercase">mock</div>}
+                    </td>
+                  )}
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => inWl ? onRemoveOne(r.symbol) : onAddOne(r.symbol)}
+                      className={`font-mono text-[10px] px-2 py-1 rounded border ${inWl ? "border-[color:var(--bull)]/50 text-[color:var(--bull)]" : "border-border text-muted-foreground hover:text-primary hover:border-primary/40"}`}>
+                      {inWl ? "★" : "+ Watch"}
+                    </button>
+                  </td>
+                </tr>
+                {isOpen && (
+                  <tr className="bg-muted/20">
+                    <td colSpan={visibleCount} className="px-4 py-3">
+                      <ScoreExplain r={r} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             );
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function ScoreExplain({ r }: { r: ScoredRow }) {
+  const Block = ({ title, items, tone }: { title: string; items: string[]; tone: string }) => (
+    <div>
+      <div className={`font-mono text-[10px] uppercase mb-1 ${tone}`}>{title}</div>
+      <ul className="text-xs space-y-0.5 text-muted-foreground">
+        {items.length === 0 ? <li className="opacity-60">—</li> : items.map((s, i) => <li key={i}>• {s}</li>)}
+      </ul>
+    </div>
+  );
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <Block title={`Value ${r.scores.value}`} items={r.scores.valueReasons} tone="text-primary" />
+      <Block title={`Momentum ${r.scores.momentum}`} items={r.scores.momentumReasons} tone="text-primary" />
+      <Block title={`Quality ${r.scores.quality}`} items={r.scores.qualityReasons} tone="text-primary" />
+      <Block title={`Risk ${r.scores.risk}`} items={r.scores.riskReasons} tone="text-[color:var(--bear)]" />
+      <Block title={`Confidence ${r.scores.confidence}`} items={r.scores.confidenceReasons} tone="text-muted-foreground" />
     </div>
   );
 }
